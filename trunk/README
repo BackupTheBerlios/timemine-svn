@@ -1,0 +1,60 @@
+Timemine
+
+Timemine is a graphical desktop front to add and edit time entries in
+project manager tool Redmine [http://www.redmine.org]. Timemine show
+a daily view of the time entries for the logged in user and a summary
+for each day in a tree view. It stays in the background and is
+accessible via a tray icon.
+
+--- Features
+
+* add, edit, delete time entries in the project manager tool Redmine
+* user specific view for a day
+* summary view for each day in the past
+* tray icon
+* written in Java with SWT: available for Linux, Solaris, MacOS, Windows
+
+--- Requirements
+
+* Linux, Solaris, MacOS, or Windows
+* Java Runtime environment 1.6 or newer
+
+--- Installation
+
+There are pre-compiled binary packages available for several
+systems. You can download them from
+
+  http://www.kigen.de/projects/timemine/index.html
+
+Install Java:
+
+* Download Java JRE V1.6 (JRE6) from http://java.com/en/download/index.jsp
+* Install Java
+
+--- Start
+
+On Linux, Solaris, MacOSX:
+
+  timemine.sh
+
+On Windows:
+
+  timemine.bat
+
+--- License
+
+Timemine and all files are under the GPL version 2. The full GPL
+version 2 license text can be found here:
+
+  http://www.gnu.org/licenses/gpl-2.0.html
+
+Timemine is using SWT. SWT is under the "Eclipse Public License"
+which can be found here:
+
+  http://www.eclipse.org/org/documents/epl-v10.php
+
+--- Contact
+
+Send an email to
+
+torsten.rupp@gmx.net
