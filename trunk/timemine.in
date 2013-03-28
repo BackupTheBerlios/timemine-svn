@@ -34,12 +34,12 @@ case $HOST_PLATFORM in
   linux)
     JAVA_FLAGS="@JAVA_FLAGS@"
 
-    $JAVA $JAVA_FLAGS -cp $BASE_DIRECTORY/onzen-linux.jar DataModel > /dev/null
+    $JAVA $JAVA_FLAGS -cp $BASE_DIRECTORY/timemine-linux.jar DataModel > /dev/null
     rc=$?
     if   test $rc -eq 32; then
-      ONZEN_JAR="$BASE_DIRECTORY/onzen-linux.jar"
+      TIMEMINE_JAR="$BASE_DIRECTORY/timemine-linux.jar"
     elif test $rc -eq 64; then
-      ONZEN_JAR="$BASE_DIRECTORY/onzen-linux_64.jar"
+      TIMEMINE_JAR="$BASE_DIRECTORY/timemine-linux_64.jar"
     else
       echo >&2 "ERROR: cannot detect data model (32/64 bit) - VM failure?"
       exit 1
@@ -48,17 +48,17 @@ case $HOST_PLATFORM in
   solaris)
     JAVA_FLAGS="@JAVA_FLAGS@"
 
-    ONZEN_JAR="$BASE_DIRECTORY/onzen-solaris.jar"
+    TIMEMINE_JAR="$BASE_DIRECTORY/timemine-solaris.jar"
     ;;
   macos)
     JAVA_FLAGS="@JAVA_FLAGS@ -XstartOnFirstThread"
 
-    $JAVA $JAVA_FLAGS -cp $BASE_DIRECTORY/onzen-macosx.jar DataModel > /dev/null
+    $JAVA $JAVA_FLAGS -cp $BASE_DIRECTORY/timemine-macosx.jar DataModel > /dev/null
     rc=$?
     if   test $rc -eq 32; then
-      ONZEN_JAR="$BASE_DIRECTORY/onzen-macosx.jar"
+      TIMEMINE_JAR="$BASE_DIRECTORY/timemine-macosx.jar"
     elif test $rc -eq 64; then
-      ONZEN_JAR="$BASE_DIRECTORY/onzen-macosx_64.jar"
+      TIMEMINE_JAR="$BASE_DIRECTORY/timemine-macosx_64.jar"
     else
       echo >&2 "ERROR: cannot detect data model (32/64 bit) - VM failure?"
       exit 1
@@ -78,7 +78,7 @@ fi
 
 # run main
 while true; do
-  $JAVA $JAVA_FLAGS -jar $ONZEN_JAR --debug "$@"
+  $JAVA $JAVA_FLAGS -jar $TIMEMINE_JAR --debug "$@"
   rc=$?
   if test $rc -eq 64; then
     continue
