@@ -1,9 +1,9 @@
 Timemine
 
 Timemine is a graphical desktop front to add and edit time entries in
-project manager tool Redmine [http://www.redmine.org]. Timemine show
-a daily view of the time entries for the logged in user and a summary
-for each day in a tree view. It stays in the background and is
+the project management tool Redmine [http://www.redmine.org]. Timemine
+show a daily view of the time entries for the logged in user and a
+summary for each day in a tree view. It stays in the background and is
 accessible via a tray icon.
 
 --- Features
