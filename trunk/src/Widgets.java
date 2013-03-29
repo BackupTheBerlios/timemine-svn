@@ -1593,7 +1593,10 @@ class Widgets
     if (!control.isDisposed())
     {
       control.forceFocus();
-      if      (control instanceof Combo)
+      if      (control instanceof Button)
+      {
+      }
+      else if (control instanceof Combo)
       {
         Combo widget = (Combo)control;
 
