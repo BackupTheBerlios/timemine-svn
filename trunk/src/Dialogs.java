@@ -1,1 +1,0 @@
-../../java/swt/Dialogs.java
