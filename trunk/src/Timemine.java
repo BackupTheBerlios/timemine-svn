@@ -1056,6 +1056,9 @@ Dprintf.dprintf("");
               {
                 public int compare(Redmine.Issue issue0, Redmine.Issue issue1)
                 {
+                  assert issue0 != null;
+                  assert issue1 != null;
+
                   return issue0.subject.compareTo(issue1.subject);
                 }
               });
@@ -1219,6 +1222,9 @@ Dprintf.dprintf("");
             {
               public int compare(Redmine.Issue issue0, Redmine.Issue issue1)
               {
+                assert issue0 != null;
+                assert issue1 != null;
+
                 return issue0.subject.compareTo(issue1.subject);
               }
             });
@@ -1938,6 +1944,9 @@ else { Dprintf.dprintf(""); }
           {
             public int compare(Redmine.Project project0, Redmine.Project project1)
             {
+              assert project0 != null;
+              assert project1 != null;
+
               return project0.name.compareTo(project1.name);
             }
           });
@@ -1946,6 +1955,9 @@ else { Dprintf.dprintf(""); }
           {
             public int compare(Redmine.Activity activity0, Redmine.Activity activity1)
             {
+              assert activity0 != null;
+              assert activity1 != null;
+
               return activity0.name.compareTo(activity1.name);
             }
           });
@@ -2076,9 +2088,10 @@ else { Dprintf.dprintf(""); }
   {
     final int[] result = new int[1];
 
-    // set window size, manage window
+    // set window size, manage window (Note: for some reason the layout may change after the Windows is open)
     shell.setSize(Settings.geometryMain.x,Settings.geometryMain.y);
     shell.open();
+    shell.setSize(Settings.geometryMain.x,Settings.geometryMain.y);
 
     // listener
     shell.addListener(USER_EVENT_QUIT,new Listener()
@@ -2533,6 +2546,9 @@ else { Dprintf.dprintf(""); }
         {
           public int compare(Redmine.Issue issue0, Redmine.Issue issue1)
           {
+            assert issue0 != null;
+            assert issue1 != null;
+
             return issue0.subject.compareTo(issue1.subject);
           }
         });
@@ -2613,6 +2629,9 @@ else { Dprintf.dprintf(""); }
     {
       public int compare(Redmine.Project project0, Redmine.Project project1)
       {
+        assert project0 != null;
+        assert project1 != null;
+
         return project0.name.compareTo(project1.name);
       }
     });
@@ -2628,6 +2647,9 @@ else { Dprintf.dprintf(""); }
     {
       public int compare(Redmine.Issue issue0, Redmine.Issue issue1)
       {
+        assert issue0 != null;
+        assert issue1 != null;
+
         return issue0.subject.compareTo(issue1.subject);
       }
     });
@@ -2643,6 +2665,9 @@ else { Dprintf.dprintf(""); }
     {
       public int compare(Redmine.Activity activity0, Redmine.Activity activity1)
       {
+        assert activity0 != null;
+        assert activity1 != null;
+
         return activity0.name.compareTo(activity1.name);
       }
     });
