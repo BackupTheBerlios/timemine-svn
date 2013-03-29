@@ -1637,52 +1637,52 @@ widget.setSelection(new Point(0,1));
     }
   }
 
-  /** set next focus for control
-   * @param control control
-   * @param nextControl next control to focus on RETURN
+  /** set next focus for controls
+   * @param controls controls
    */
-  public static void setNextFocus(Control control, final Control nextControl)
+  public static void setNextFocus(final Control... controls)
   {
-    if (!control.isDisposed())
+    for (int i = 0; i < controls.length-1; i++)
     {
-      SelectionListener selectionListener = new SelectionListener()
+      if (!controls[i].isDisposed())
       {
-        public void widgetDefaultSelected(SelectionEvent selectionEvent)
+        final Control nextControl = controls[i+1];
+        SelectionListener selectionListener = new SelectionListener()
         {
-          Widgets.setFocus(nextControl);
-        }
-        public void widgetSelected(SelectionEvent selectionEvent)
-        {
-        }
-      };
+          public void widgetDefaultSelected(SelectionEvent selectionEvent)
+          {
+Dprintf.dprintf("");
+            Widgets.setFocus(nextControl);
+          }
+          public void widgetSelected(SelectionEvent selectionEvent)
+          {
+          }
+        };
 
-      if      (control instanceof Button)
-      {
-        ((Button)control).addSelectionListener(selectionListener);
-      }
-      else if (control instanceof Combo)
-      {
-        Combo widget = (Combo)control;
-        widget.addSelectionListener(selectionListener);
-      }
-      else if (control instanceof Spinner)
-      {
-        Spinner widget = (Spinner)control;
-        widget.addSelectionListener(selectionListener);
-      }
-      else if (control instanceof Text)
-      {
-        Text widget = (Text)control;
-        widget.addSelectionListener(selectionListener);
-      }
-      else if (control instanceof StyledText)
-      {
-        StyledText widget = (StyledText)control;
-        widget.addSelectionListener(selectionListener);
-      }
-      else
-      {
-        throw new Error("Internal error: unknown control in setNextFocus()");
+        if      (controls[i] instanceof Button)
+        {
+          ((Button)controls[i]).addSelectionListener(selectionListener);
+        }
+        else if (controls[i] instanceof Combo)
+        {
+          ((Combo)controls[i]).addSelectionListener(selectionListener);
+        }
+        else if (controls[i] instanceof Spinner)
+        {
+          ((Spinner)controls[i]).addSelectionListener(selectionListener);
+        }
+        else if (controls[i] instanceof Text)
+        {
+          ((Text)controls[i]).addSelectionListener(selectionListener);
+        }
+        else if (controls[i] instanceof StyledText)
+        {
+          ((StyledText)controls[i]).addSelectionListener(selectionListener);
+        }
+        else
+        {
+          throw new Error("Internal error: unknown control in setNextFocus()");
+        }
       }
     }
   }
