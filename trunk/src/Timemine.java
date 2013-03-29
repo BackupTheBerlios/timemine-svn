@@ -247,14 +247,34 @@ class TimeEntryComparator implements Comparator<Redmine.TimeEntry>
  */
 public class Timemine
 {
+  /** color data
+   */
+  class ColorData
+  {
+    Color foreground;
+    Color background;
+
+    ColorData(Settings.Color color)
+    {
+      this.foreground = (color.foreground != null) ? new Color(display,color.foreground) : null;
+      this.background = (color.background != null) ? new Color(display,color.background) : null;
+    }
+
+    public void dispose()
+    {
+      if (foreground != null) foreground.dispose();
+      if (background != null) background.dispose();
+    }
+  }
+
   /** login data
    */
   class LoginData
   {
-    String serverName;       // server name
-    int    serverPort;       // server port
-    String loginName;        // login name
-    String loginPassword;    // login password
+    String serverName;
+    int    serverPort;
+    String loginName;
+    String loginPassword;
 
     /** create login data
      * @param serverName server name
@@ -300,18 +320,19 @@ public class Timemine
   // --------------------------- constants --------------------------------
 
   // exit codes
-  public static int                    EXITCODE_OK             =   0;
-  public static int                    EXITCODE_FAIL           =   1;
-  public static int                    EXITCODE_RESTART        =  64;
-  public static int                    EXITCODE_INTERNAL_ERROR = 127;
+  public final int                     EXITCODE_OK             =   0;
+  public final int                     EXITCODE_FAIL           =   1;
+  public final int                     EXITCODE_RESTART        =  64;
+  public final int                     EXITCODE_INTERNAL_ERROR = 127;
 
   // colors
   public static Color                  COLOR_BLACK;
   public static Color                  COLOR_WHITE;
   public static Color                  COLOR_BACKGROUND;
-  public static Color                  COLOR_TODAY_TIME_ENTRIES;
-  public static Color                  COLOR_TIME_ENTRIES;
-  public static Color                  COLOR_TIME_ENTRIES_INCOMPLETE;
+  public static ColorData              COLOR_TODAY_TIME_ENTRIES;
+  public static ColorData              COLOR_TIME_ENTRIES;
+  public static ColorData              COLOR_TIME_ENTRIES_INCOMPLETE;
+  public static ColorData              COLOR_TIME_ENTRIES_WEEKEND;
 
   // images
   public static Image                  IMAGE_PROGRAM_ICON;
@@ -330,9 +351,8 @@ public class Timemine
   private final int                    USER_EVENT_QUIT = 0xFFFF+0;
 
   // refresh time
-// todo: settings
-  private final int                    REFRESH_TIME              =   10*60*1000;
-  private final int                    REFRESH_TIME_ENTRIES_TIME = 10*1000;//24*60*60*1000;
+  private final int                    REFRESH_TIME              =    10*60*1000;
+  private final int                    REFRESH_TIME_ENTRIES_TIME = 24*60*60*1000;
 
   // command line options
   private static final Option[] options =
@@ -355,13 +375,6 @@ public class Timemine
   private Shell                                  shell;
   private Tray                                   tray;
   private TrayItem                               trayItem;
-
-  private Composite                              repositoryTabEmpty = null;
-  private LinkedList<StatusText>                 statusTextList = new LinkedList<StatusText>();
-  private String                                 masterPassword = null;
-
-  private Menu                                   menuShellCommands;
-  private Menu                                   menuRepositories;
 
   private TabFolder                              widgetTabFolder;
   private Composite                              widgetTabToday;
@@ -620,9 +633,10 @@ exception.printStackTrace();
     COLOR_BLACK                   = display.getSystemColor(SWT.COLOR_BLACK);
     COLOR_WHITE                   = display.getSystemColor(SWT.COLOR_WHITE);
     COLOR_BACKGROUND              = display.getSystemColor(SWT.COLOR_WIDGET_BACKGROUND);
-    COLOR_TODAY_TIME_ENTRIES      = new Color(display,Settings.colorTodayTimeEntries.background);
-    COLOR_TIME_ENTRIES            = new Color(display,Settings.colorTimeEntries.background);
-    COLOR_TIME_ENTRIES_INCOMPLETE = new Color(display,Settings.colorTimeEntriesIncomplete.background);
+    COLOR_TODAY_TIME_ENTRIES      = new ColorData(Settings.colorTodayTimeEntries);
+    COLOR_TIME_ENTRIES            = new ColorData(Settings.colorTimeEntries);
+    COLOR_TIME_ENTRIES_INCOMPLETE = new ColorData(Settings.colorTimeEntriesIncomplete);
+    COLOR_TIME_ENTRIES_WEEKEND    = new ColorData(Settings.colorTimeEntriesWeekend);
 
     // get images
     IMAGE_PROGRAM_ICON            = Widgets.loadImage(display,"program-icon.png");
@@ -1421,17 +1435,31 @@ Dprintf.dprintf("");
 //Dprintf.dprintf("update treeItem=%s index=%d",treeItem,index);
             if (index >= 0) // && (index < redmine.getTimeEntryCount()))
             {
-              Calendar now  = Calendar.getInstance();
-              now.add(Calendar.DAY_OF_MONTH,-index);
-              Date     date = now.getTime();
+              Calendar calendar = Calendar.getInstance();
+              calendar.add(Calendar.DAY_OF_MONTH,-index);
+              Date     date      = calendar.getTime();
+              int      dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
 
               double hoursSum = redmine.getTimeEntryHoursSum(Redmine.ID_ANY,Redmine.ID_ANY,date);
 
               treeItem.setData(date);
               treeItem.setText(0,DATE_FORMAT.format(date));
               treeItem.setText(1,formatHours(hoursSum));
-              treeItem.setForeground(COLOR_BLACK);
-              treeItem.setBackground((hoursSum > Settings.requiredHoursPerDay) ? COLOR_TIME_ENTRIES : COLOR_TIME_ENTRIES_INCOMPLETE);
+              if      ((dayOfWeek == Calendar.SATURDAY) || (dayOfWeek == Calendar.SUNDAY))
+              {
+                treeItem.setForeground(COLOR_TIME_ENTRIES_WEEKEND.foreground);
+                treeItem.setBackground(COLOR_TIME_ENTRIES_WEEKEND.background);
+              }
+              else if (hoursSum < Settings.requiredHoursPerDay)
+              {
+                treeItem.setForeground(COLOR_TIME_ENTRIES_INCOMPLETE.foreground);
+                treeItem.setBackground(COLOR_TIME_ENTRIES_INCOMPLETE.background);
+              }
+              else
+              {
+                treeItem.setForeground(COLOR_TIME_ENTRIES.foreground);
+                treeItem.setBackground(COLOR_TIME_ENTRIES.background);
+              }
               if (treeItem.getExpanded())
               {
                 setTreeEntries(treeItem,
@@ -2140,6 +2168,7 @@ else { Dprintf.dprintf(""); }
         {
           case SWT.F5:
             Widgets.showTab(widgetTabFolder,widgetTabToday);
+            Widgets.setFocus(widgetTodayTimeEntryTable);
             event.doit = false;
             break;
           case SWT.F6:
@@ -2320,8 +2349,8 @@ else { Dprintf.dprintf(""); }
       subTreeItem.setText(3,(project != null) ? project.name : "");
       subTreeItem.setText(4,(issue != null) ? issue.subject : "");
       subTreeItem.setText(5,timeEntry.comments);
-      subTreeItem.setForeground(COLOR_BLACK);
-      subTreeItem.setBackground(COLOR_TIME_ENTRIES);
+      subTreeItem.setForeground(COLOR_TIME_ENTRIES.foreground);
+      subTreeItem.setBackground(COLOR_TIME_ENTRIES.background);
     }
     treeItem.setExpanded(true);
   }
