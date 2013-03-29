@@ -324,7 +324,7 @@ public class Timemine
   public static Cursor                 CURSOR_WAIT;
 
   // date/time format
-  public static SimpleDateFormat       DATE_FORMAT     = new SimpleDateFormat(Settings.dateFormat);
+  public static SimpleDateFormat       DATE_FORMAT;
 
   // user events
   private final int                    USER_EVENT_QUIT = 0xFFFF+0;
@@ -632,6 +632,9 @@ exception.printStackTrace();
 
     // get cursors
     CURSOR_WAIT                   = new Cursor(display,SWT.CURSOR_WAIT);
+
+    // date formats
+    DATE_FORMAT                   = new SimpleDateFormat(Settings.dateFormat);
   }
 
   /** init loaded classes/JARs watchdog
@@ -1390,7 +1393,7 @@ Dprintf.dprintf("");
 
             int index = tree.indexOf(treeItem);
 //            int count = redmine.getTimeEntryCount();
-Dprintf.dprintf("update treeItem=%s index=%d",treeItem,index);
+//Dprintf.dprintf("update treeItem=%s index=%d",treeItem,index);
             if (index >= 0) // && (index < redmine.getTimeEntryCount()))
             {
               Calendar now  = Calendar.getInstance();
@@ -2230,8 +2233,14 @@ Dprintf.dprintf("loginData.serverName=%s",loginData.serverName);
       });
     }
 
-    if ((loginData.serverName != null) && (loginData.serverName.length() != 0)) Widgets.setFocus(widgetLoginPassword);
+    // add listeners
+    Widgets.setNextFocus(widgetServerName,widgetServerPort);
+    Widgets.setNextFocus(widgetServerPort,widgetLoginName);
+    Widgets.setNextFocus(widgetLoginName,widgetLoginPassword);
+    Widgets.setNextFocus(widgetLoginPassword,widgetLoginButton);
 
+    // run
+    if ((loginData.serverName != null) && (loginData.serverName.length() != 0)) Widgets.setFocus(widgetLoginPassword);
     Boolean result = (Boolean)Dialogs.run(dialog);
 
     return (result != null) ? result : false;
@@ -2796,28 +2805,21 @@ Dprintf.dprintf("loginData.serverName=%s",loginData.serverName);
       }
 
       composite = Widgets.addTab(tabFolder,"Misc");
-      composite.setLayout(new TableLayout(new double[]{0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,0.0},new double[]{0.0,1.0},2));
+      composite.setLayout(new TableLayout(new double[]{0.0,1.0,0.0},new double[]{0.0,1.0},2));
       Widgets.layout(composite,0,7,TableLayoutData.NSWE);
       {
         label = Widgets.newLabel(composite,"Date format:");
-        Widgets.layout(label,2,0,TableLayoutData.W);
+        Widgets.layout(label,0,0,TableLayoutData.W);
         widgetDateFormat = Widgets.newText(composite);
         widgetDateFormat.setText(Settings.dateFormat);
-        Widgets.layout(widgetDateFormat,2,1,TableLayoutData.WE);
-        widgetDateFormat.setToolTipText("Date format.\nPatterns:\n  y - year digit\n  M - month digit\n  d - day digit");
-
-        label = Widgets.newLabel(composite,"Max. background tasks:");
-        Widgets.layout(label,6,0,TableLayoutData.W);
-//          widgetMaxBackgroundTasks = Widgets.newSpinner(composite,1,256);
-//          widgetMaxBackgroundTasks.setSelection(Settings.maxBackgroundTasks);
-//          Widgets.layout(widgetMaxBackgroundTasks,6,1,TableLayoutData.W);
-//          widgetMaxBackgroundTasks.setToolTipText("Max. number of background tasks.");
+        Widgets.layout(widgetDateFormat,0,1,TableLayoutData.WE);
+        widgetDateFormat.setToolTipText("Date format.\nPatterns:\n  y - year digit\n  M - month digit\n  d - day digit\n  E - week day name");
 
         label = Widgets.newLabel(composite,"Show flags:");
-        Widgets.layout(label,10,0,TableLayoutData.NW);
+        Widgets.layout(label,1,0,TableLayoutData.NW);
         subComposite = Widgets.newComposite(composite);
         subComposite.setLayout(new TableLayout(1.0,1.0));
-        Widgets.layout(subComposite,10,1,TableLayoutData.NSWE);
+        Widgets.layout(subComposite,1,1,TableLayoutData.NSWE);
         {
           widgetShowFlags = Widgets.newTable(subComposite,SWT.CHECK);
           Widgets.layout(widgetShowFlags,0,0,TableLayoutData.NSWE);
@@ -2863,7 +2865,6 @@ Dprintf.dprintf("loginData.serverName=%s",loginData.serverName);
         }
         public void widgetSelected(SelectionEvent selectionEvent)
         {
-Dprintf.dprintf("");
           Settings.serverName = widgetServerName.getText();
           Settings.serverPort = widgetServerPort.getSelection();
           Settings.loginName  = widgetLoginName.getText();
@@ -2872,7 +2873,6 @@ Dprintf.dprintf("");
           saveFonts(widgetFonts);
 
           Settings.dateFormat = widgetDateFormat.getText().trim();
-//            Settings.maxBackgroundTasks                     = Integer.parseInt(widgetMaxBackgroundTasks.getText());
 
           for (TableItem tableItem : widgetShowFlags.getItems())
           {
