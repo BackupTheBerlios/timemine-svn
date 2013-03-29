@@ -374,6 +374,7 @@ public class Timemine
   private Spinner                                widgetSpentMinuteFraction;
   private Combo                                  widgetActivities;
   private Text                                   widgetComments;
+  private Button                                 widgetAddNew;
 
   private Tree                                   widgetTimeEntryTree;
 
@@ -1189,9 +1190,9 @@ Dprintf.dprintf("");
           Widgets.layout(widgetComments,1,0,TableLayoutData.WE,0,6);
           widgetComments.setToolTipText("New time entry comment line.");
 
-          button = Widgets.newButton(composite,"Add new");
-          button.setFont(FONT_TEXT);
-          Widgets.layout(button,0,6,TableLayoutData.NSE,2,0);
+          widgetAddNew = Widgets.newButton(composite,"Add new");
+          widgetAddNew.setFont(FONT_TEXT);
+          Widgets.layout(widgetAddNew,0,6,TableLayoutData.NSE,2,0);
         }
         composite.setTabList(new Control[]{widgetSpentHourFraction,widgetSpentMinuteFraction,widgetActivities,widgetComments});
       }
@@ -1284,58 +1285,76 @@ Dprintf.dprintf("");
           widgetSpentMinuteFraction.setSelection(minuteFraction);
         }
       });
-      button.addSelectionListener(new SelectionListener()
+      widgetAddNew.addSelectionListener(new SelectionListener()
       {
         public void widgetDefaultSelected(SelectionEvent selectionEvent)
         {
         }
         public void widgetSelected(SelectionEvent selectionEvent)
         {
-          if (   ((widgetProjects.getSelectionIndex()   >= 0) && (widgetProjects.getSelectionIndex()   < projectIds.length ))
-              && ((widgetIssues.getSelectionIndex()     >= 0) && (widgetIssues.getSelectionIndex()     < issueIds.length   ))
-              && ((widgetActivities.getSelectionIndex() >= 0) && (widgetActivities.getSelectionIndex() < activityIds.length))
-             )
+          int    projectIndex  = widgetProjects.getSelectionIndex();
+          int    issueIndex    = widgetIssues.getSelectionIndex();
+          int    activityIndex = widgetActivities.getSelectionIndex();
+          double hours         = Redmine.toHours(widgetSpentHourFraction.getSelection(),widgetSpentMinuteFraction.getSelection());
+          String comments      = widgetComments.getText().trim();
+
+          if ((projectIndex < 0) || (projectIndex >= projectIds.length ))
           {
-            int    projectId  = projectIds[widgetProjects.getSelectionIndex()];
-            int    issueId    = issueIds[widgetIssues.getSelectionIndex()];
-            int    activityId = activityIds[widgetActivities.getSelectionIndex()];
-            double hours      = Redmine.toHours(widgetSpentHourFraction.getSelection(),widgetSpentMinuteFraction.getSelection());
-            String comments   = widgetComments.getText().trim();
-
-            Redmine.TimeEntry timeEntry = redmine.new TimeEntry(projectId,
-                                                                issueId,
-                                                                activityId,
-                                                                hours,
-                                                                comments
-                                                               );
-            try
-            {
-              redmine.add(timeEntry);
-
-              Redmine.Activity activity = redmine.getActivity(timeEntry.activityId);
-              Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
-              Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
-              TableItem tableItem = Widgets.addTableEntry(widgetTodayTimeEntryTable,
-                                                          timeEntry,
-                                                          formatHours(timeEntry.hours),
-                                                          (activity != null) ? activity.name : "",
-                                                          (project != null) ? project.name : "",
-                                                          (issue != null) ? issue.subject : "",
-                                                          timeEntry.comments
-                                                         );
-              widgetTodayTimeEntryTable.setSelection(tableItem);
-            }
-            catch (RedmineException exception)
-            {
-              Dialogs.error(shell,"Cannot add time entry (error: "+exception.getMessage()+")");
-            }
+            Dialogs.error(shell,"Please select a project for the new time entry.");
+            Widgets.setFocus(widgetProjects);
+            return;
           }
-          else
+          if ((issueIndex < 0) || (issueIndex >= issueIds.length ))
           {
-            Dialogs.error(shell,"Please select a project, an issue and an activity for the new time entry.");
+            Dialogs.error(shell,"Please select an issue for the new time entry.");
+            Widgets.setFocus(widgetIssues);
+            return;
+          }
+          if (hours <= 0)
+          {
+            Dialogs.error(shell,"Please select some hours for the new time entry.");
+            Widgets.setFocus(widgetSpentMinuteFraction);
+            return;
+          }
+          if (comments.isEmpty())
+          {
+            Dialogs.error(shell,"Please enter a comment for the new time entry.");
+            Widgets.setFocus(widgetComments);
+            return;
+          }
+
+          Redmine.TimeEntry timeEntry = redmine.new TimeEntry(projectIds[projectIndex],
+                                                              issueIds[issueIndex],
+                                                              activityIds[activityIndex],
+                                                              hours,
+                                                              comments
+                                                             );
+          try
+          {
+            redmine.add(timeEntry);
+
+            Redmine.Activity activity = redmine.getActivity(timeEntry.activityId);
+            Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
+            Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
+            TableItem tableItem = Widgets.addTableEntry(widgetTodayTimeEntryTable,
+                                                        timeEntry,
+                                                        formatHours(timeEntry.hours),
+                                                        (activity != null) ? activity.name : "",
+                                                        (project != null) ? project.name : "",
+                                                        (issue != null) ? issue.subject : "",
+                                                        timeEntry.comments
+                                                       );
+            widgetTodayTimeEntryTable.setSelection(tableItem);
+          }
+          catch (RedmineException exception)
+          {
+            Dialogs.error(shell,"Cannot add time entry (error: "+exception.getMessage()+")");
           }
         }
       });
+
+      // set next focus
+      Widgets.setNextFocus(widgetProjects,widgetIssues,widgetSpentMinuteFraction,widgetSpentMinuteFraction,widgetActivities,widgetComments,widgetAddNew);
     }
 
     widgetTabAll = Widgets.addTab(widgetTabFolder,"All ("+Widgets.acceleratorToText(SWT.F6)+")");
@@ -1888,7 +1907,6 @@ else { Dprintf.dprintf(""); }
     Settings.serverName = loginData.serverName;
     Settings.serverPort = loginData.serverPort;
     Settings.loginName  = loginData.loginName;
-Dprintf.dprintf("loginData.serverName=%s",loginData.serverName);
 
     // add watchdog for loaded classes/JARs
     initClassesWatchDog();
@@ -2234,10 +2252,9 @@ Dprintf.dprintf("loginData.serverName=%s",loginData.serverName);
     }
 
     // add listeners
-    Widgets.setNextFocus(widgetServerName,widgetServerPort);
-    Widgets.setNextFocus(widgetServerPort,widgetLoginName);
-    Widgets.setNextFocus(widgetLoginName,widgetLoginPassword);
-    Widgets.setNextFocus(widgetLoginPassword,widgetLoginButton);
+
+    // set next focus
+    Widgets.setNextFocus(widgetServerName,widgetServerPort,widgetLoginName,widgetLoginPassword,widgetLoginButton);
 
     // run
     if ((loginData.serverName != null) && (loginData.serverName.length() != 0)) Widgets.setFocus(widgetLoginPassword);
