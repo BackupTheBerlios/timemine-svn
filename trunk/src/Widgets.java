@@ -1630,9 +1630,12 @@ widget.setSelection(new Point(0,1));
       else if (control instanceof Tree)
       {
       }
+      else if (control instanceof DateTime)
+      {
+      }
       else
       {
-        throw new Error("Internal error: unknown control in setFocus()");
+        throw new Error("Internal error: unknown control in setFocus(): "+control);
       }
     }
   }
@@ -1651,14 +1654,12 @@ widget.setSelection(new Point(0,1));
         {
           public void widgetDefaultSelected(SelectionEvent selectionEvent)
           {
-Dprintf.dprintf("");
             Widgets.setFocus(nextControl);
           }
           public void widgetSelected(SelectionEvent selectionEvent)
           {
           }
         };
-
         if      (controls[i] instanceof Button)
         {
           ((Button)controls[i]).addSelectionListener(selectionListener);
@@ -1679,9 +1680,17 @@ Dprintf.dprintf("");
         {
           ((StyledText)controls[i]).addSelectionListener(selectionListener);
         }
+        else if (controls[i] instanceof Tree)
+        {
+          ((Tree)controls[i]).addSelectionListener(selectionListener);
+        }
+        else if (controls[i] instanceof DateTime)
+        {
+          ((DateTime)controls[i]).addSelectionListener(selectionListener);
+        }
         else
         {
-          throw new Error("Internal error: unknown control in setNextFocus()");
+          throw new Error("Internal error: unknown control in setNextFocus(): "+controls[i]);
         }
       }
     }
