@@ -1052,7 +1052,7 @@ public class Redmine
       TimeEntry timeEntry = timeEntries.get(i).get();
       if (timeEntry == null)
       {
-Dprintf.dprintf("fill %d",i);
+//Dprintf.dprintf("fill %d length %d",i,ENTRY_LIMIT);
         // fill time entry array (get as much data a possible with single request)
         fillTimeEntry(i,ENTRY_LIMIT);
 
@@ -1279,7 +1279,6 @@ Dprintf.dprintf("fill %d",i);
   {
     // fill specific time entries
     getTimeEntries(projectId,issueId,userId,spentOn,refreshFlag);
-Dprintf.dprintf("refreshFlag=%s",refreshFlag);
 
     // create array
     ArrayList<TimeEntry> filteredTimeEntries = new ArrayList<TimeEntry>();
