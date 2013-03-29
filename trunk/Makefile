@@ -67,12 +67,10 @@ SWT_JAR             = $(SWT_JAR_MACOSX)
 endif
 endif
 endif
-SQLITE_JAR          = jars/sqlitejdbc.jar
-MAIL_JAR            = jars/mail.jar
 
 APACHE_COMMONS_JARS = jars/commons-codec-1.7.jar
 
-CLASSPATH           = classes:$(SWT_JAR):$(SQLITE_JAR):$(MAIL_JAR):$(APACHE_COMMONS_JARS)
+CLASSPATH           = classes:$(SWT_JAR):$(APACHE_COMMONS_JARS)
 
 SHELL = bash
 
@@ -159,8 +157,7 @@ JARS           = timemine.jar \
                  timemine-macosx.jar \
                  timemine-macosx_64.jar \
 
-OTHER_JARS     = $(SQLITE_JAR) \
-                 $(MAIL_JAR) \
+OTHER_JARS     = $(APACHE_COMMONS_JARS) \
 
 TARGETS        = timemine \
                  $(if $(LAUNCH4J),timemine.exe,timemine.bat) \
@@ -219,10 +216,8 @@ ifneq ($(JAR),)
 	$(CP) classes/*.class tmp/jar
 	# add SWT JAR
 	($(CD) tmp/jar; $(UNZIP) ../../$(SWT_JAR_LINUX) 1>/dev/null; $(RMRF) META-INF)
-	# add SQLite JAR
-	($(CD) tmp/jar; $(UNZIP) ../../$(SQLITE_JAR) 1>/dev/null; $(RMRF) META-INF)
-	# add mail JAR
-	($(CD) tmp/jar; $(UNZIP) ../../$(MAIL_JAR) 1>/dev/null; $(RMRF) META-INF)
+	# add Apache commons JAR
+	($(CD) tmp/jar; $(UNZIP) ../../$(APACHE_COMMONS_JARS) 1>/dev/null; $(RMRF) META-INF)
 	# add images
 	$(INSTALL) -d tmp/jar/images
 	$(CP) images/*.png tmp/jar/images
@@ -241,10 +236,8 @@ ifneq ($(JAR),)
 	# add SWT JAR
 	($(CD) tmp/jar; $(UNZIP) ../../$(SWT_JAR_LINUX_64) 1>/dev/null; $(RMRF) META-INF)
 	$(CP) classes/*.class tmp/jar
-	# add SQLite JAR
-	($(CD) tmp/jar; $(UNZIP) ../../$(SQLITE_JAR) 1>/dev/null; $(RMRF) META-INF)
-	# add mail JAR
-	($(CD) tmp/jar; $(UNZIP) ../../$(MAIL_JAR) 1>/dev/null; $(RMRF) META-INF)
+	# add Apache commons JAR
+	($(CD) tmp/jar; $(UNZIP) ../../$(APACHE_COMMONS_JARS) 1>/dev/null; $(RMRF) META-INF)
 	# add images
 	$(INSTALL) -d tmp/jar/images
 	$(CP) images/*.png tmp/jar/images
@@ -263,10 +256,8 @@ ifneq ($(JAR),)
 	# add SWT JAR
 	($(CD) tmp/jar; $(UNZIP) ../../$(SWT_JAR_WINDOWS) 1>/dev/null; $(RMRF) META-INF)
 	$(CP) classes/*.class tmp/jar
-	# add SQLite JAR
-	($(CD) tmp/jar; $(UNZIP) ../../$(SQLITE_JAR) 1>/dev/null; $(RMRF) META-INF)
-	# add mail JAR
-	($(CD) tmp/jar; $(UNZIP) ../../$(MAIL_JAR) 1>/dev/null; $(RMRF) META-INF)
+	# add Apache commons JAR
+	($(CD) tmp/jar; $(UNZIP) ../../$(APACHE_COMMONS_JARS) 1>/dev/null; $(RMRF) META-INF)
 	# add images
 	$(INSTALL) -d tmp/jar/images
 	$(CP) images/*.png tmp/jar/images
@@ -285,10 +276,8 @@ ifneq ($(JAR),)
 	# add SWT JAR
 	($(CD) tmp/jar; $(UNZIP) ../../$(SWT_JAR_WINDOWS_64) 1>/dev/null; $(RMRF) META-INF)
 	$(CP) classes/*.class tmp/jar
-	# add SQLite JAR
-	($(CD) tmp/jar; $(UNZIP) ../../$(SQLITE_JAR) 1>/dev/null; $(RMRF) META-INF)
-	# add mail JAR
-	($(CD) tmp/jar; $(UNZIP) ../../$(MAIL_JAR) 1>/dev/null; $(RMRF) META-INF)
+	# add Apache commons JAR
+	($(CD) tmp/jar; $(UNZIP) ../../$(APACHE_COMMONS_JARS) 1>/dev/null; $(RMRF) META-INF)
 	# add images
 	$(INSTALL) -d tmp/jar/images
 	$(CP) images/*.png tmp/jar/images
@@ -307,10 +296,8 @@ ifneq ($(JAR),)
 	# add SWT JAR
 	($(CD) tmp/jar; $(UNZIP) ../../$(SWT_JAR_SOLARIS) 1>/dev/null; $(RMRF) META-INF)
 	$(CP) classes/*.class tmp/jar
-	# add SQLite JAR
-	($(CD) tmp/jar; $(UNZIP) ../../$(SQLITE_JAR) 1>/dev/null; $(RMRF) META-INF)
-	# add mail JAR
-	($(CD) tmp/jar; $(UNZIP) ../../$(MAIL_JAR) 1>/dev/null; $(RMRF) META-INF)
+	# add Apache commons JAR
+	($(CD) tmp/jar; $(UNZIP) ../../$(APACHE_COMMONS_JARS) 1>/dev/null; $(RMRF) META-INF)
 	# add images
 	$(INSTALL) -d tmp/jar/images
 	$(CP) images/*.png tmp/jar/images
@@ -329,10 +316,8 @@ ifneq ($(JAR),)
 	# add SWT JAR
 	($(CD) tmp/jar; $(UNZIP) ../../$(SWT_JAR_MACOSX) 1>/dev/null; $(RMRF) META-INF)
 	$(CP) classes/*.class tmp/jar
-	# add SQLite JAR
-	($(CD) tmp/jar; $(UNZIP) ../../$(SQLITE_JAR) 1>/dev/null; $(RMRF) META-INF)
-	# add mail JAR
-	($(CD) tmp/jar; $(UNZIP) ../../$(MAIL_JAR) 1>/dev/null; $(RMRF) META-INF)
+	# add Apache commons JAR
+	($(CD) tmp/jar; $(UNZIP) ../../$(APACHE_COMMONS_JARS) 1>/dev/null; $(RMRF) META-INF)
 	# add images
 	$(INSTALL) -d tmp/jar/images
 	$(CP) images/*.png tmp/jar/images
@@ -351,10 +336,8 @@ ifneq ($(JAR),)
 	# add SWT JAR
 	($(CD) tmp/jar; $(UNZIP) ../../$(SWT_JAR_MACOSX_64) 1>/dev/null; $(RMRF) META-INF)
 	$(CP) classes/*.class tmp/jar
-	# add SQLite JAR
-	($(CD) tmp/jar; $(UNZIP) ../../$(SQLITE_JAR) 1>/dev/null; $(RMRF) META-INF)
-	# add mail JAR
-	($(CD) tmp/jar; $(UNZIP) ../../$(MAIL_JAR) 1>/dev/null; $(RMRF) META-INF)
+	# add Apache commons JAR
+	($(CD) tmp/jar; $(UNZIP) ../../$(APACHE_COMMONS_JARS) 1>/dev/null; $(RMRF) META-INF)
 	# add images
 	$(INSTALL) -d tmp/jar/images
 	$(CP) images/*.png tmp/jar/images
