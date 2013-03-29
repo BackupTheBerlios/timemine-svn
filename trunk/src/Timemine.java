@@ -299,11 +299,6 @@ public class Timemine
 
   // --------------------------- constants --------------------------------
 
-  final static String REDMINE_HOST   = "localhostx";
-  final static int    REDMINE_PORT   = 3000;
-  final static String LOGIN_NAME     = "admin";
-  final static String LOGIN_PASSWORD = "admin";
-
   // exit codes
   public static int                    EXITCODE_OK             =   0;
   public static int                    EXITCODE_FAIL           =   1;
