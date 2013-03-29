@@ -5727,7 +5727,6 @@ private static void printTree(Tree tree)
       {
         if (((keyEvent.stateMask & SWT.CTRL) != 0) && (keyEvent.keyCode == 'c'))
         {
-//Dprintf.dprintf("control=%s",control);
           if      (control instanceof Text)
           {
             setClipboard(clipboard,(Text)control);
