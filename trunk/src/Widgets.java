@@ -1706,7 +1706,7 @@ widget.setSelection(new Point(0,1));
     while (controlList.size() > 1)
     {
       int n = controlList.size();
-Dprintf.dprintf("controls %d:",controlList.size()); for (Control control : controlList) { Dprintf.dprintf("  %s",control); } Dprintf.dprintf("");
+//Dprintf.dprintf("controls %d:",controlList.size()); for (Control control : controlList) { Dprintf.dprintf("  %s",control); } Dprintf.dprintf("");
 
       // find most left and deepest control
       int i        = 0;
@@ -1744,17 +1744,17 @@ Dprintf.dprintf("controls %d:",controlList.size()); for (Control control : contr
         // set tab control
         Control[] tabControls = tabControlList.toArray(new Control[tabControlList.size()]);
         parentComposite.setTabList(tabControls);
-Dprintf.dprintf("  tabControls: %d",tabControls.length); for (Control control : tabControls) { Dprintf.dprintf("    %s",control); } Dprintf.dprintf("");
+//Dprintf.dprintf("  tabControls: %d",tabControls.length); for (Control control : tabControls) { Dprintf.dprintf("    %s",control); } Dprintf.dprintf("");
 
         // replace by parent composite
         controlList.add(i,parentComposite);
       }
       else
       {
-Dprintf.dprintf("  remove: %s",controlList.get(i));
+//Dprintf.dprintf("  remove: %s",controlList.get(i));
         controlList.remove(i);
       }
-Dprintf.dprintf("---");
+//Dprintf.dprintf("---");
 
       assert controlList.size() < n;
     }
