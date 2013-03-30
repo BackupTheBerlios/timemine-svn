@@ -1896,7 +1896,7 @@ widget.setSelection(new Point(0,1));
 
     if (accelerator != SWT.NONE)
     {
-      char key = (char)(accelerator & SWT.KEY_MASK);
+      char key = Character.toLowerCase((char)(accelerator & SWT.KEY_MASK));
       int index = text.toLowerCase().indexOf(key);
       if (index >= 0)
       {
@@ -2108,7 +2108,7 @@ widget.setSelection(new Point(0,1));
 
     if (accelerator != SWT.NONE)
     {
-      char key = (char)(accelerator & SWT.KEY_MASK);
+      char key = Character.toLowerCase((char)(accelerator & SWT.KEY_MASK));
       int index = text.toLowerCase().indexOf(key);
       if (index >= 0)
       {
@@ -2197,7 +2197,7 @@ widget.setSelection(new Point(0,1));
 
     if (accelerator != SWT.NONE)
     {
-      char key = (char)(accelerator & SWT.KEY_MASK);
+      char key = Character.toLowerCase((char)(accelerator & SWT.KEY_MASK));
       int index = text.toLowerCase().indexOf(key);
       if (index >= 0)
       {
