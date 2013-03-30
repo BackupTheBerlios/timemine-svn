@@ -19,6 +19,7 @@ import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Scanner;
 
 // graphics
@@ -1645,6 +1646,7 @@ widget.setSelection(new Point(0,1));
    */
   public static void setNextFocus(final Control... controls)
   {
+    // add selection listeners
     for (int i = 0; i < controls.length-1; i++)
     {
       if (!controls[i].isDisposed())
@@ -1693,6 +1695,68 @@ widget.setSelection(new Point(0,1));
           throw new Error("Internal error: unknown control in setNextFocus(): "+controls[i]);
         }
       }
+    }
+
+    // set tab traversal
+    LinkedList<Control> controlList = new LinkedList<Control>();
+    for (Control control : controls)
+    {
+      controlList.add(control);
+    }
+    while (controlList.size() > 1)
+    {
+      int n = controlList.size();
+Dprintf.dprintf("controls %d:",controlList.size()); for (Control control : controlList) { Dprintf.dprintf("  %s",control); } Dprintf.dprintf("");
+
+      // find most left and deepest control
+      int i        = 0;
+      int maxLevel = 0;
+      for (int j = 0; j < controlList.size(); j++)
+      {
+        Control control = controlList.get(j);
+
+        int level = 0;
+        while (control.getParent() != null)
+        {
+          level++;
+          control = control.getParent();
+        }
+        if (level > maxLevel)
+        {
+          i        = j;
+          maxLevel = level;
+        }
+      }
+
+      // get parent composite
+      Composite parentComposite = controlList.get(i).getParent();
+
+      if ((i < controlList.size()-1) && (controlList.get(i+1).getParent() == parentComposite))
+      {
+        // get all consecutive controls with same parent composite
+        ArrayList<Control> tabControlList = new ArrayList<Control>();
+        tabControlList.add(controlList.get(i)); controlList.remove(i);
+        while ((i < controlList.size()) && (controlList.get(i).getParent() == parentComposite))
+        {
+          tabControlList.add(controlList.get(i)); controlList.remove(i);
+        }
+
+        // set tab control
+        Control[] tabControls = tabControlList.toArray(new Control[tabControlList.size()]);
+        parentComposite.setTabList(tabControls);
+Dprintf.dprintf("  tabControls: %d",tabControls.length); for (Control control : tabControls) { Dprintf.dprintf("    %s",control); } Dprintf.dprintf("");
+
+        // replace by parent composite
+        controlList.add(i,parentComposite);
+      }
+      else
+      {
+Dprintf.dprintf("  remove: %s",controlList.get(i));
+        controlList.remove(i);
+      }
+Dprintf.dprintf("---");
+
+      assert controlList.size() < n;
     }
   }
 
@@ -2584,7 +2648,7 @@ widget.setSelection(new Point(0,1));
   {
     DateTime dateTime;
 
-    dateTime = new DateTime(composite,style|SWT.DATE|SWT.DROP_DOWN);
+    dateTime = new DateTime(composite,style|SWT.BORDER|SWT.DATE|SWT.DROP_DOWN);
     if      (value != null)
     {
       setDate(dateTime,value);
