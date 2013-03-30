@@ -4228,7 +4228,7 @@ e composite widget
 
   /** remove table entry
    * @param table table
-   * @param table entry data
+   * @param data entry data
    */
   public static void removeTableEntry(final Table table, final Object data)
   {
@@ -4443,7 +4443,7 @@ e composite widget
     return treeItem;
   }
 
-  /** add sub-tree item ad end
+  /** add sub-tree item at end
    * @param parentTreeItem parent tree item
    * @param data data
    * @param folderFlag TRUE iff foler
@@ -4452,6 +4452,101 @@ e composite widget
   public static TreeItem addTreeItem(TreeItem parentTreeItem, Object data, boolean folderFlag)
   {
     return addTreeItem(parentTreeItem,0,data,folderFlag);
+  }
+
+  /** remove sub-tree item
+   * @param tree tree
+   * @param data entry data
+   */
+  public static void removeTreeEntry(final Tree tree, final Object data)
+  {
+    if (!tree.isDisposed())
+    {
+      tree.getDisplay().syncExec(new Runnable()
+      {
+        public void run()
+        {
+          if (!tree.isDisposed())
+          {
+            for (TreeItem treeItem : tree.getItems())
+            {
+              if (treeItem.getData() == data)
+              {
+                TreeItem parentTreeItem = treeItem.getParentItem();
+                treeItem.dispose();
+                if ((parentTreeItem != null) && (parentTreeItem.getItemCount() <= 0))
+                {
+                  parentTreeItem.setExpanded(false);
+                  new TreeItem(parentTreeItem,SWT.NONE);
+                }
+                break;
+              }
+            }
+          }
+        }
+      });
+    }
+  }
+
+  /** remove sub-tree item
+   * @param tree tree
+   * @param treeItem tree item to remove
+   */
+  public static void removeTreeEntry(final Tree tree, final TreeItem treeItem)
+  {
+    if (!tree.isDisposed())
+    {
+      tree.getDisplay().syncExec(new Runnable()
+      {
+        public void run()
+        {
+          if (!tree.isDisposed())
+          {
+            TreeItem parentTreeItem = treeItem.getParentItem();
+            treeItem.dispose();
+            if ((parentTreeItem != null) && (parentTreeItem.getItemCount() <= 0))
+            {
+              parentTreeItem.setExpanded(false);
+              new TreeItem(parentTreeItem,SWT.NONE);
+            }
+          }
+        }
+      });
+    }
+  }
+
+  /** remove tree entries
+   * @param tree tree
+   * @param treeItems tree items to remove
+   */
+  public static void removeTableEntries(Tree tree, TreeItem[] treeItems)
+  {
+    for (TreeItem treeItem : treeItems)
+    {
+      removeTreeEntry(tree,treeItem);
+    }
+  }
+
+  /** remove all tree entries
+   * @param tree tree
+   */
+  public static void removeAllTreeEntries(final Tree tree, final TreeItem treeItem)
+  {
+    if (!tree.isDisposed())
+    {
+      tree.getDisplay().syncExec(new Runnable()
+      {
+        public void run()
+        {
+          if (!tree.isDisposed())
+          {
+            treeItem.removeAll();
+            new TreeItem(treeItem,SWT.NONE);
+            treeItem.setExpanded(false);
+          }
+        }
+      });
+    }
   }
 
 /*
