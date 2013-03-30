@@ -413,23 +413,6 @@ public class Redmine
           );
     }
 
-    /** create time entry
-     * @param projectId project id
-     * @param issueId issue id
-     * @param activityId activity id
-     * @param hourse spent hours
-     * @param comments comments
-     */
-    TimeEntry()
-    {
-      this(ID_NONE,
-           ID_NONE,
-           ID_NONE,
-           Settings.minTimeDelta,
-           ""
-          );
-    }
-
     /** get spent hours fraction
      * @return hours fraction
      */
@@ -584,7 +567,7 @@ public class Redmine
 
   // --------------------------- constants --------------------------------
   public  final static int ID_ANY  = -1;
-  private final static int ID_NONE =  0;
+  public  final static int ID_NONE =  0;
 
   private final static int              ENTRY_LIMIT     = 100; // max. 100
   private final static SimpleDateFormat DATE_FORMAT     = new SimpleDateFormat("yyyy-MM-dd");
@@ -782,6 +765,24 @@ public class Redmine
     return priorityMap;
   }
 
+  /** get default priority id
+   * @return id or ID_NONE
+   */
+  public int getDefaultPriorityId()
+  {
+    int priorityId = ID_NONE;
+    for (Priority priority : priorityMap.values())
+    {
+      if (priority.isDefault)
+      {
+        priorityId = priority.id;
+        break;
+      }
+    }
+
+    return priorityId;
+  }
+
   /** get Redmine activities
    * @return activity hash map <id,activity>
    */
@@ -817,6 +818,24 @@ public class Redmine
   {
     getActivities();
     return activityMap.values().toArray(new Redmine.Activity[activityMap.size()]);
+  }
+
+  /** get default activity id
+   * @return id or ID_NONE
+   */
+  public int getDefaultActivityId()
+  {
+    int activityId = ID_NONE;
+    for (Activity activity : activityMap.values())
+    {
+      if (activity.isDefault)
+      {
+        activityId = activity.id;
+        break;
+      }
+    }
+
+    return activityId;
   }
 
   /** get Redmine activity
