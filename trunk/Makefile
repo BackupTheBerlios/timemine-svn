@@ -148,8 +148,7 @@ OTHER_SOURCES  = timemine.in \
 OBJECTS        = $(foreach z,$(SOURCES),$(basename $(subst src/,classes/,$z)).class) \
                  classes/Config.class \
 
-JARS           = timemine.jar \
-                 timemine-linux.jar \
+JARS           = timemine-linux.jar \
                  timemine-linux_64.jar \
                  timemine-windows.jar \
                  timemine-windows_64.jar \
