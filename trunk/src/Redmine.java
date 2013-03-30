@@ -200,7 +200,7 @@ public class Redmine
      */
     public String toString()
     {
-      return "Priorities { "+id+", "+name+" }";
+      return "Priority { "+id+", "+name+", "+isDefault+" }";
     }
   }
 
@@ -224,7 +224,7 @@ public class Redmine
      */
     public String toString()
     {
-      return "Activity { "+id+", "+name+" }";
+      return "Activity { "+id+", "+name+", "+isDefault+" }";
     }
   }
 
@@ -232,12 +232,51 @@ public class Redmine
    */
   class Project extends Entity
   {
-    public final String name;
+    public String     name;
+    public String     identifier;
+    public String     description;
+    public final Date createdOn;
+    public Date       updateOn;
 
-    Project(int id, String name)
+    /** create project
+     * @param id time entry id
+     * @param name name of project
+     * @param identifier name of identifier
+     * @param description name of description
+     * @param createdOn created-on date
+     * @param updateOn update-on date
+     */
+    Project(int    id,
+            String name,
+            String identifier,
+            String description,
+            Date   createdOn,
+            Date   updateOn
+           )
     {
       super(id);
-      this.name = name;
+      this.name        = name;
+      this.identifier  = identifier;
+      this.description = description;
+      this.createdOn   = createdOn;
+      this.updateOn    = updateOn;
+    }
+
+    /** create project
+     * @param id time entry id
+     * @param name name of project
+     * @param identifier name of identifier
+     * @param description name of description
+     * @param createdOn created-on date
+     * @param updateOn update-on date
+     */
+    Project(int    id,
+            String name,
+            String identifier,
+            String description
+           )
+    {
+      this(id,name,identifier,description,new Date(),new Date());
     }
 
     /** convert to string
@@ -245,7 +284,7 @@ public class Redmine
      */
     public String toString()
     {
-      return "Project { "+id+", "+name+" }";
+      return "Project { "+((id != ID_NONE) ? id : "none")+", "+name+" }";
     }
   }
 
@@ -268,6 +307,18 @@ public class Redmine
     public Date       updateOn;
     public Date       closedOn;
 
+    /** create time entry
+     * @param id time entry id
+     * @param projectId project id
+     * @param issueId issue id
+     * @param userId user id
+     * @param activityId activity id
+     * @param hourse spent hours
+     * @param comments comments
+     * @param spentOn spent-on date
+     * @param createdOn created-on date
+     * @param updateOn update-on date
+     */
     Issue(int    id,
           int    projectId,
           int    trackerId,
@@ -307,7 +358,7 @@ public class Redmine
      */
     public String toString()
     {
-      return "Issue { "+id+", "+projectId+", "+trackerId+", "+statusId+", "+subject+", "+description+" }";
+      return "Issue { "+((id != ID_NONE) ? id : "none")+", "+((projectId != ID_NONE) ? projectId : "none")+", "+((trackerId != ID_NONE) ? trackerId : "none")+", "+((statusId != ID_NONE) ? statusId : "none")+", "+subject+", "+description+" }";
     }
   }
 
@@ -443,7 +494,7 @@ public class Redmine
      */
     public String toString()
     {
-      return "TimeEntry { "+id+", "+projectId+", "+issueId+", "+activityId+", "+hours+", "+spentOn+", "+comments+" }";
+      return "TimeEntry { "+((id != ID_NONE) ? id : "none")+", "+((projectId != ID_NONE) ? projectId : "none")+", "+((issueId != ID_NONE) ? issueId : "none")+", "+((activityId != ID_NONE) ? activityId : "none")+", "+hours+", "+spentOn+", "+comments+" }";
     }
   }
 
@@ -878,7 +929,11 @@ public class Redmine
       public void data(Element element)
       {
         Project project = new Project(getIntValue(element,"id"),
-                                      getValue(element,"name")
+                                      getValue(element,"name"),
+                                      getValue(element,"identifier"),
+                                      getValue(element,"description"),
+                                      getDateValue(element,"created_on"),
+                                      getDateValue(element,"updated_on")
                                      );
 
         store(project);
