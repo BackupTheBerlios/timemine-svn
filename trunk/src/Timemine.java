@@ -841,33 +841,18 @@ exception.printStackTrace();
     });
 //    widgetTabFolder.setToolTipText("Repository tab.\nDouble-click to edit settings of repository.");
 
-
-    KeyListener keyListener = new KeyListener()
-    {
-      public void keyPressed(KeyEvent keyEvent)
-      {
-        if      (Widgets.isAccelerator(keyEvent,Settings.keySelectProject))
-        {
-Dprintf.dprintf("");
-          Widgets.setFocus(widgetProjects);
-          keyEvent.doit = false;
-        }
-        else if (Widgets.isAccelerator(keyEvent,Settings.keySelectIssue))
-        {
-Dprintf.dprintf("");
-          Widgets.setFocus(widgetIssues);
-          keyEvent.doit = false;
-        }
-      }
-      public void keyReleased(KeyEvent keyEvent)
-      {
-      }
-    };
     widgetTabToday = Widgets.addTab(widgetTabFolder,"Today ("+Widgets.acceleratorToText(SWT.F5)+")");
     widgetTabToday.setLayout(new TableLayout(new double[]{1.0,0.0,0.0},1.0,2));
     Widgets.layout(widgetTabToday,0,0,TableLayoutData.NSWE);
-    widgetTabToday.addKeyListener(keyListener);
     {
+      // key accelerators
+      final int ACCELERATOR_PROJECT  = SWT.CTRL+'p';
+      final int ACCELERATOR_ISSUE    = SWT.CTRL+'i';
+      final int ACCELERATOR_SPENT    = SWT.CTRL+'t';
+      final int ACCELERATOR_ACTIVITY = SWT.CTRL+'y';
+      final int ACCELERATOR_COMMENTS = SWT.CTRL+'c';
+      final int ACCELERATOR_SAVE     = SWT.CTRL+'s';
+
       // today time entry list
       widgetTodayTimeEntryTable = Widgets.newTable(widgetTabToday,SWT.MULTI);
       widgetTodayTimeEntryTable.setFont(FONT_LIST);
@@ -915,7 +900,7 @@ Dprintf.dprintf("");
             Redmine.TimeEntry timeEntry = (Redmine.TimeEntry)tableItems[0].getData();
 
             Calendar prevSpentOnCalendar = Calendar.getInstance(); prevSpentOnCalendar.setTime(timeEntry.spentOn);
-            if (editTimeEntry(timeEntry))
+            if (editTimeEntry(timeEntry,"Edit time entry","Save"))
             {
               Calendar todayCalendar   = Calendar.getInstance();
               Calendar spendOnCalendar = Calendar.getInstance(); spendOnCalendar.setTime(timeEntry.spentOn);
@@ -1032,7 +1017,6 @@ Dprintf.dprintf("");
         {
         }
       });
-      widgetTodayTimeEntryTable.addKeyListener(keyListener);
       widgetTodayTimeEntryTable.addSelectionListener(new SelectionListener()
       {
         public void widgetDefaultSelected(SelectionEvent selectionEvent)
@@ -1114,10 +1098,9 @@ Dprintf.dprintf("");
       group = Widgets.newGroup(widgetTabToday,"New");
       group.setFont(FONT_TEXT);
       group.setLayout(new TableLayout(0.0,new double[]{0.0,1.0},2));
-      group.addKeyListener(keyListener);
       Widgets.layout(group,1,0,TableLayoutData.WE);
       {
-        label = Widgets.newLabel(group,"Project:",SWT.NONE,Settings.keySelectProject);
+        label = Widgets.newLabel(group,"Project:",SWT.NONE,ACCELERATOR_PROJECT);
         label.setFont(FONT_TEXT);
         Widgets.layout(label,0,0,TableLayoutData.W);
 
@@ -1125,7 +1108,7 @@ Dprintf.dprintf("");
         widgetProjects.setFont(FONT_TEXT);
         Widgets.layout(widgetProjects,0,1,TableLayoutData.WE);
 
-        label = Widgets.newLabel(group,"Issue:",SWT.NONE,Settings.keySelectIssue);
+        label = Widgets.newLabel(group,"Issue:",SWT.NONE,ACCELERATOR_ISSUE);
         label.setFont(FONT_TEXT);
         Widgets.layout(label,1,0,TableLayoutData.W);
 
@@ -1133,7 +1116,7 @@ Dprintf.dprintf("");
         widgetIssues.setFont(FONT_TEXT);
         Widgets.layout(widgetIssues,1,1,TableLayoutData.WE);
 
-        label = Widgets.newLabel(group,"Spent:",SWT.NONE,Settings.keySelectSpentHours);
+        label = Widgets.newLabel(group,"Spent:",SWT.NONE,ACCELERATOR_SPENT);
         label.setFont(FONT_TEXT);
         Widgets.layout(label,2,0,TableLayoutData.NW);
 
@@ -1198,16 +1181,22 @@ Dprintf.dprintf("");
             }
           });
 
+//          label = Widgets.newLabel(composite,"Activity:",SWT.NONE,ACCELERATOR_ACTIVITY);
+//          Widgets.layout(label,3,0,TableLayoutData.W);
+
           widgetActivities = Widgets.newSelect(composite);
           widgetActivities.setFont(FONT_TEXT);
           Widgets.layout(widgetActivities,0,5,TableLayoutData.WE);
+
+//          label = Widgets.newLabel(composite,"Comments:",SWT.NONE,ACCELERATOR_COMMENTS);
+//          Widgets.layout(label,4,0,TableLayoutData.W);
 
           widgetComments = Widgets.newText(composite);
           widgetComments.setFont(FONT_TEXT);
           Widgets.layout(widgetComments,1,0,TableLayoutData.WE,0,6);
           widgetComments.setToolTipText("New time entry comment line.");
 
-          widgetAddNew = Widgets.newButton(composite,"Add new");
+          widgetAddNew = Widgets.newButton(composite,"Add new",ACCELERATOR_SAVE);
           widgetAddNew.setFont(FONT_TEXT);
           Widgets.layout(widgetAddNew,0,6,TableLayoutData.NSE,2,0);
         }
@@ -1334,6 +1323,12 @@ Dprintf.dprintf("");
             Widgets.setFocus(widgetSpentMinuteFraction);
             return;
           }
+          if ((activityIndex < 0) || (activityIndex >= activityIds.length ))
+          {
+            Dialogs.error(shell,"Please select an activity for the new time entry.");
+            Widgets.setFocus(widgetActivities);
+            return;
+          }
           if (comments.isEmpty())
           {
             Dialogs.error(shell,"Please enter a comment for the new time entry.");
@@ -1370,6 +1365,48 @@ Dprintf.dprintf("");
           }
         }
       });
+
+      // add shortcut listener
+      Listener keyListener = new Listener()
+      {
+        public void handleEvent(Event event)
+        {
+          if (Widgets.isChildOf(widgetTabToday,event.widget))
+          {
+            if      (Widgets.isAccelerator(event,ACCELERATOR_PROJECT))
+            {
+              Widgets.setFocus(widgetProjects);
+              event.doit = false;
+            }
+            else if (Widgets.isAccelerator(event,ACCELERATOR_ISSUE))
+            {
+              Widgets.setFocus(widgetIssues);
+              event.doit = false;
+            }
+            else if (Widgets.isAccelerator(event,ACCELERATOR_SPENT))
+            {
+              Widgets.setFocus(widgetSpentHourFraction);
+              event.doit = false;
+            }
+            else if (Widgets.isAccelerator(event,ACCELERATOR_ACTIVITY))
+            {
+              Widgets.setFocus(widgetActivities);
+              event.doit = false;
+            }
+            else if (Widgets.isAccelerator(event,ACCELERATOR_COMMENTS))
+            {
+              Widgets.setFocus(widgetComments);
+              event.doit = false;
+            }
+            else if (Widgets.isAccelerator(event,ACCELERATOR_SAVE))
+            {
+              Widgets.invoke(widgetAddNew);
+              event.doit = false;
+            }
+          }
+        }
+      };
+      display.addFilter(SWT.KeyDown,keyListener);
 
       // set next focus
       Widgets.setNextFocus(widgetProjects,widgetIssues,widgetSpentHourFraction,widgetSpentMinuteFraction,widgetActivities,widgetComments,widgetAddNew);
@@ -1512,7 +1549,7 @@ Dprintf.dprintf("");
               Redmine.TimeEntry timeEntry = (Redmine.TimeEntry)treeItem.getData();
 
               Calendar prevSpentOnCalendar = Calendar.getInstance(); prevSpentOnCalendar.setTime(timeEntry.spentOn);
-              if (editTimeEntry(timeEntry))
+              if (editTimeEntry(timeEntry,"Edit time entry","Save"))
               {
                 Calendar todayCalendar   = Calendar.getInstance();
                 Calendar spendOnCalendar = Calendar.getInstance(); spendOnCalendar.setTime(timeEntry.spentOn);
@@ -1631,7 +1668,10 @@ Dprintf.dprintf("");
               }
             }
           }
-          else if (Widgets.isAccelerator(keyEvent,SWT.CR) || Widgets.isAccelerator(keyEvent,SWT.KEYPAD_CR))
+          else if (   Widgets.isAccelerator(keyEvent,Settings.keyEditTimeEntry)
+                   || Widgets.isAccelerator(keyEvent,SWT.CR)
+                   || Widgets.isAccelerator(keyEvent,SWT.KEYPAD_CR)
+                  )
           {
             if (treeItems.length > 0)
             {
@@ -1639,7 +1679,7 @@ Dprintf.dprintf("");
               {
                 Redmine.TimeEntry timeEntry = (Redmine.TimeEntry)treeItems[0].getData();
 
-                if (editTimeEntry(timeEntry))
+                if (editTimeEntry(timeEntry,"Edit time entry","Save"))
                 {
                   try
                   {
@@ -1678,11 +1718,46 @@ Dprintf.dprintf("");
                     return;
                   }
                 }
-else { Dprintf.dprintf(""); }
               }
             }
           }
-          else if (Widgets.isAccelerator(keyEvent,SWT.DEL) || Widgets.isAccelerator(keyEvent,SWT.BS))
+          else if (   Widgets.isAccelerator(keyEvent,Settings.keyNewTimeEntry)
+                   || Widgets.isAccelerator(keyEvent,SWT.INSERT)
+                  )
+          {
+            Date date;
+            if (treeItems.length > 0)
+            {
+              TreeItem treeItem = treeItems[0];
+              while (!(treeItem.getData() instanceof Date))
+              {
+                treeItem = treeItem.getParentItem();
+              }
+              date = (Date)(((Date)treeItem.getData()).clone());
+            }
+            else
+            {
+              date = new Date();
+            }
+
+  Dprintf.dprintf("");
+            Redmine.TimeEntry timeEntry = redmine.new TimeEntry(Redmine.ID_NONE,
+                                                                Redmine.ID_NONE,
+                                                                redmine.getDefaultActivityId(),
+                                                                (double)Settings.minTimeDelta/60.0,
+                                                                "",
+                                                                date
+                                                               );
+
+            if (editTimeEntry(timeEntry,"Add time entry","Add"))
+            {
+  Dprintf.dprintf("");
+            }
+          }
+          else if (   Widgets.isAccelerator(keyEvent,Settings.keyDeleteTimeEntry)
+                   || Widgets.isAccelerator(keyEvent,SWT.DEL)
+                   || Widgets.isAccelerator(keyEvent,SWT.BS)
+                  )
           {
             if (treeItems.length > 0)
             {
@@ -2164,22 +2239,35 @@ else { Dprintf.dprintf(""); }
     {
       public void handleEvent(Event event)
       {
-        switch (event.keyCode)
+        if      (Widgets.isAccelerator(event,Settings.keyTabTodayTimeEntries))
         {
-          case SWT.F5:
-            Widgets.showTab(widgetTabFolder,widgetTabToday);
-            Widgets.setFocus(widgetTodayTimeEntryTable);
-            event.doit = false;
-            break;
-          case SWT.F6:
-            Widgets.showTab(widgetTabFolder,widgetTabAll);
-            Widgets.setFocus(widgetTimeEntryTree);
-            event.doit = false;
-            break;
-          default:
-//Dprintf.dprintf("event=%s",event);
-            break;
+          Widgets.showTab(widgetTabFolder,widgetTabToday);
+          Widgets.setFocus(widgetTodayTimeEntryTable);
+          event.doit = false;
         }
+        else if (Widgets.isAccelerator(event,Settings.keyTabTimeEntries))
+        {
+          Widgets.showTab(widgetTabFolder,widgetTabAll);
+          Widgets.setFocus(widgetTimeEntryTree);
+          event.doit = false;
+        }
+/*
+        else if (Widgets.isAccelerator(event,Settings.keyNewTimeEntry))
+        {
+Dprintf.dprintf("");
+          Redmine.TimeEntry timeEntry = redmine.new TimeEntry(Redmine.ID_NONE,
+                                                              Redmine.ID_NONE,
+                                                              redmine.getDefaultActivityId(),
+                                                              (double)Settings.minTimeDelta/60.0,
+                                                              ""
+                                                             );
+
+          if (editTimeEntry(timeEntry))
+          {
+Dprintf.dprintf("");
+          }
+        }
+*/
       }
     });
 
@@ -2368,9 +2456,11 @@ else { Dprintf.dprintf(""); }
 
   /** edit time entry
    * @param timeEntry time entry to edit
+   * @param title window title text
+   * @param okText ok-button text
    * @return true if time entry edited, false otherwise
    */
-  private boolean editTimeEntry(final Redmine.TimeEntry timeEntry)
+  private boolean editTimeEntry(final Redmine.TimeEntry timeEntry, String title, String okText)
   {
     /** dialog data
      */
@@ -2388,6 +2478,14 @@ else { Dprintf.dprintf(""); }
       }
     };
 
+    // key accelerators
+    final int ACCELERATOR_PROJECT  = SWT.CTRL+'p';
+    final int ACCELERATOR_ISSUE    = SWT.CTRL+'i';
+    final int ACCELERATOR_SPENT    = SWT.CTRL+'t';
+    final int ACCELERATOR_ACTIVITY = SWT.CTRL+'y';
+    final int ACCELERATOR_COMMENTS = SWT.CTRL+'c';
+    final int ACCELERATOR_SAVE     = SWT.CTRL+'s';
+
     final Data  data = new Data();
     final Shell dialog;
     Composite   composite,subComposite,subSubComposite;
@@ -2396,7 +2494,7 @@ else { Dprintf.dprintf(""); }
     Button      button;
 
     // repository edit dialog
-    dialog = Dialogs.openModal(shell,"Edit time entry",new double[]{1.0,0.0},1.0);
+    dialog = Dialogs.openModal(shell,title,new double[]{1.0,0.0},1.0);
 
     final Combo    widgetProjects;
     final Combo    widgetIssues;
@@ -2410,20 +2508,20 @@ else { Dprintf.dprintf(""); }
     composite.setLayout(new TableLayout(0.0,new double[]{0.0,1.0},4));
     Widgets.layout(composite,0,0,TableLayoutData.NSWE,0,0,4);
     {
-      label = Widgets.newLabel(composite,"Project:",SWT.NONE,Settings.keySelectProject);
+      label = Widgets.newLabel(composite,"Project:",SWT.NONE,ACCELERATOR_PROJECT);
       Widgets.layout(label,0,0,TableLayoutData.W);
 
       widgetProjects = Widgets.newSelect(composite);
       Widgets.layout(widgetProjects,0,1,TableLayoutData.WE);
 
-      label = Widgets.newLabel(composite,"Issue:",SWT.NONE,Settings.keySelectIssue);
+      label = Widgets.newLabel(composite,"Issue:",SWT.NONE,ACCELERATOR_ISSUE);
       Widgets.layout(label,1,0,TableLayoutData.W);
 
       widgetIssues = Widgets.newSelect(composite);
       Widgets.layout(widgetIssues,1,1,TableLayoutData.WE);
 
-      label = Widgets.newLabel(composite,"Spent:",SWT.NONE,Settings.keySelectSpentHours);
-      Widgets.layout(label,2,0,TableLayoutData.NW);
+      label = Widgets.newLabel(composite,"Spent:",SWT.NONE,ACCELERATOR_SPENT);
+      Widgets.layout(label,2,0,TableLayoutData.W);
 
       subComposite = Widgets.newComposite(composite);
       subComposite.setLayout(new TableLayout(0.0,1.0));
@@ -2495,15 +2593,21 @@ else { Dprintf.dprintf(""); }
             }
           });
         }
-
-        widgetActivities = Widgets.newSelect(subComposite);
-        Widgets.layout(widgetActivities,1,0,TableLayoutData.WE);
-
-        widgetComments = Widgets.newText(subComposite);
-        widgetComments.setText(timeEntry.comments);
-        Widgets.layout(widgetComments,2,0,TableLayoutData.WE);
-        widgetComments.setToolTipText("Time entry comment line.");
       }
+
+      label = Widgets.newLabel(composite,"Activity:",SWT.NONE,ACCELERATOR_ACTIVITY);
+      Widgets.layout(label,3,0,TableLayoutData.W);
+
+      widgetActivities = Widgets.newSelect(composite);
+      Widgets.layout(widgetActivities,3,1,TableLayoutData.WE);
+
+      label = Widgets.newLabel(composite,"Comments:",SWT.NONE,ACCELERATOR_COMMENTS);
+      Widgets.layout(label,4,0,TableLayoutData.W);
+
+      widgetComments = Widgets.newText(composite);
+      widgetComments.setText(timeEntry.comments);
+      Widgets.layout(widgetComments,4,1,TableLayoutData.WE);
+      widgetComments.setToolTipText("Time entry comment line.");
     }
 
     // buttons
@@ -2511,7 +2615,7 @@ else { Dprintf.dprintf(""); }
     composite.setLayout(new TableLayout(0.0,1.0));
     Widgets.layout(composite,1,0,TableLayoutData.WE,0,0,4);
     {
-      widgetSave = Widgets.newButton(composite,"Save",Settings.keySaveTimeEntry);
+      widgetSave = Widgets.newButton(composite,okText,ACCELERATOR_SAVE);
       Widgets.layout(widgetSave,0,0,TableLayoutData.W,0,0,0,0,SWT.DEFAULT,SWT.DEFAULT,70,SWT.DEFAULT);
       widgetSave.addSelectionListener(new SelectionListener()
       {
@@ -2520,12 +2624,49 @@ else { Dprintf.dprintf(""); }
         }
         public void widgetSelected(SelectionEvent selectionEvent)
         {
-          timeEntry.projectId  = data.projectIds[widgetProjects.getSelectionIndex()];
-          timeEntry.issueId    = data.issueIds[widgetIssues.getSelectionIndex()];
+          int    projectIndex  = widgetProjects.getSelectionIndex();
+          int    issueIndex    = widgetIssues.getSelectionIndex();
+          int    activityIndex = widgetActivities.getSelectionIndex();
+          double hours         = Redmine.toHours(widgetSpentHourFraction.getSelection(),widgetSpentMinuteFraction.getSelection());
+          String comments      = widgetComments.getText().trim();
+
+          if ((projectIndex < 0) || (projectIndex >= data.projectIds.length ))
+          {
+            Dialogs.error(shell,"Please select a project for the new time entry.");
+            Widgets.setFocus(widgetProjects);
+            return;
+          }
+          if ((issueIndex < 0) || (issueIndex >= data.issueIds.length ))
+          {
+            Dialogs.error(shell,"Please select an issue for the new time entry.");
+            Widgets.setFocus(widgetIssues);
+            return;
+          }
+          if (hours <= 0)
+          {
+            Dialogs.error(shell,"Please select some hours for the new time entry.");
+            Widgets.setFocus(widgetSpentMinuteFraction);
+            return;
+          }
+          if ((activityIndex < 0) || (activityIndex >= data.activityIds.length ))
+          {
+            Dialogs.error(shell,"Please select an activity for the new time entry.");
+            Widgets.setFocus(widgetActivities);
+            return;
+          }
+          if (comments.isEmpty())
+          {
+            Dialogs.error(shell,"Please enter a comment for the new time entry.");
+            Widgets.setFocus(widgetComments);
+            return;
+          }
+
+          timeEntry.projectId  = data.projectIds[projectIndex];
+          timeEntry.issueId    = data.issueIds[issueIndex];
           timeEntry.spentOn    = Widgets.getDate(widgetSpentOn);
-          timeEntry.hours      = Redmine.toHours(widgetSpentHourFraction.getSelection(),widgetSpentMinuteFraction.getSelection());
-          timeEntry.activityId = data.activityIds[widgetActivities.getSelectionIndex()];
-          timeEntry.comments   = widgetComments.getText().trim();
+          timeEntry.hours      = hours;
+          timeEntry.activityId = data.activityIds[activityIndex];
+          timeEntry.comments   = comments;
 
           Dialogs.close(dialog,true);
         }
@@ -2543,6 +2684,77 @@ else { Dprintf.dprintf(""); }
           Dialogs.close(dialog,false);
         }
       });
+    }
+
+    // get projects, issues, activities
+    Redmine.Project[]  projects   = null;
+    Redmine.Issue[]    issues     = null;
+    Redmine.Activity[] activities = null;
+    try
+    {
+      projects   = redmine.getProjectArray();
+      issues     = redmine.getIssueArray(timeEntry.projectId);
+      activities = redmine.getActivityArray();
+    }
+    catch (RedmineException exception)
+    {
+      Dialogs.error(shell,"Cannot get data from Redmine server (error: "+exception.getMessage()+")");
+      return false;
+    }
+
+    // show sorted projects, issues, activities
+    Arrays.sort(projects,new Comparator<Redmine.Project>()
+    {
+      public int compare(Redmine.Project project0, Redmine.Project project1)
+      {
+        assert project0 != null;
+        assert project1 != null;
+
+        return project0.name.compareTo(project1.name);
+      }
+    });
+    data.projectIds = new int[projects.length];
+    for (int i = 0; i < projects.length; i++)
+    {
+      widgetProjects.add(projects[i].name);
+      if (timeEntry.projectId == projects[i].id) widgetProjects.select(i);
+      data.projectIds[i] = projects[i].id;
+    }
+
+    Arrays.sort(issues,new Comparator<Redmine.Issue>()
+    {
+      public int compare(Redmine.Issue issue0, Redmine.Issue issue1)
+      {
+        assert issue0 != null;
+        assert issue1 != null;
+
+        return issue0.subject.compareTo(issue1.subject);
+      }
+    });
+    data.issueIds = new int[issues.length];
+    for (int i = 0; i < issues.length; i++)
+    {
+      widgetIssues.add(issues[i].subject);
+      if (timeEntry.issueId == issues[i].id) widgetIssues.select(i);
+      data.issueIds[i] = issues[i].id;
+    }
+
+    Arrays.sort(activities,new Comparator<Redmine.Activity>()
+    {
+      public int compare(Redmine.Activity activity0, Redmine.Activity activity1)
+      {
+        assert activity0 != null;
+        assert activity1 != null;
+
+        return activity0.name.compareTo(activity1.name);
+      }
+    });
+    data.activityIds = new int[activities.length];
+    for (int i = 0; i < activities.length; i++)
+    {
+      widgetActivities.add(activities[i].name);
+      if (timeEntry.activityId == activities[i].id) widgetActivities.select(i);
+      data.activityIds[i] = activities[i].id;
     }
 
     // add listeners
@@ -2635,6 +2847,48 @@ else { Dprintf.dprintf(""); }
       }
     });
 
+    // add shortcut listener
+    Listener keyListener = new Listener()
+    {
+      public void handleEvent(Event event)
+      {
+        if (Widgets.isChildOf(dialog,event.widget))
+        {
+          if      (Widgets.isAccelerator(event,ACCELERATOR_PROJECT))
+          {
+            Widgets.setFocus(widgetProjects);
+            event.doit = false;
+          }
+          else if (Widgets.isAccelerator(event,ACCELERATOR_ISSUE))
+          {
+            Widgets.setFocus(widgetIssues);
+            event.doit = false;
+          }
+          else if (Widgets.isAccelerator(event,ACCELERATOR_SPENT))
+          {
+            Widgets.setFocus(widgetSpentOn);
+            event.doit = false;
+          }
+          else if (Widgets.isAccelerator(event,ACCELERATOR_ACTIVITY))
+          {
+            Widgets.setFocus(widgetActivities);
+            event.doit = false;
+          }
+          else if (Widgets.isAccelerator(event,ACCELERATOR_COMMENTS))
+          {
+            Widgets.setFocus(widgetComments);
+            event.doit = false;
+          }
+          else if (Widgets.isAccelerator(event,ACCELERATOR_SAVE))
+          {
+            Widgets.invoke(widgetSave);
+            event.doit = false;
+          }
+        }
+      }
+    };
+    display.addFilter(SWT.KeyDown,keyListener);
+
     // set next focus
     Widgets.setNextFocus(widgetProjects,
                          widgetIssues,
@@ -2646,83 +2900,19 @@ else { Dprintf.dprintf(""); }
                          widgetSave
                         );
 
-    // get projects, issues, activities
-    Redmine.Project[]  projects   = null;
-    Redmine.Issue[]    issues     = null;
-    Redmine.Activity[] activities = null;
-    try
-    {
-      projects   = redmine.getProjectArray();
-      issues     = redmine.getIssueArray(timeEntry.projectId);
-      activities = redmine.getActivityArray();
-    }
-    catch (RedmineException exception)
-    {
-      Dialogs.error(shell,"Cannot get data from Redmine server (error: "+exception.getMessage()+")");
-      return false;
-    }
-
-    // show sorted projects, issues, activities
-    Arrays.sort(projects,new Comparator<Redmine.Project>()
-    {
-      public int compare(Redmine.Project project0, Redmine.Project project1)
-      {
-        assert project0 != null;
-        assert project1 != null;
-
-        return project0.name.compareTo(project1.name);
-      }
-    });
-    data.projectIds = new int[projects.length];
-    for (int i = 0; i < projects.length; i++)
-    {
-      widgetProjects.add(projects[i].name);
-      if (timeEntry.projectId == projects[i].id) widgetProjects.select(i);
-      data.projectIds[i] = projects[i].id;
-    }
-
-    Arrays.sort(issues,new Comparator<Redmine.Issue>()
-    {
-      public int compare(Redmine.Issue issue0, Redmine.Issue issue1)
-      {
-        assert issue0 != null;
-        assert issue1 != null;
-
-        return issue0.subject.compareTo(issue1.subject);
-      }
-    });
-    data.issueIds = new int[issues.length];
-    for (int i = 0; i < issues.length; i++)
-    {
-      widgetIssues.add(issues[i].subject);
-      if (timeEntry.issueId == issues[i].id) widgetIssues.select(i);
-      data.issueIds[i] = issues[i].id;
-    }
-
-    Arrays.sort(activities,new Comparator<Redmine.Activity>()
-    {
-      public int compare(Redmine.Activity activity0, Redmine.Activity activity1)
-      {
-        assert activity0 != null;
-        assert activity1 != null;
-
-        return activity0.name.compareTo(activity1.name);
-      }
-    });
-    data.activityIds = new int[activities.length];
-    for (int i = 0; i < activities.length; i++)
-    {
-      widgetActivities.add(activities[i].name);
-      if (timeEntry.activityId == activities[i].id) widgetActivities.select(i);
-      data.activityIds[i] = activities[i].id;
-    }
-
     // show dialog
     Dialogs.show(dialog);
 
     // run
-    Widgets.setFocus(widgetSpentMinuteFraction);
-    return (Boolean)Dialogs.run(dialog,false);
+    if      (timeEntry.projectId == Redmine.ID_NONE) Widgets.setFocus(widgetProjects);
+    else if (timeEntry.issueId   == Redmine.ID_NONE) Widgets.setFocus(widgetIssues);
+    else                                             Widgets.setFocus(widgetSpentMinuteFraction);
+    boolean result = (Boolean)Dialogs.run(dialog,false);
+
+    // remove listeners, free resources
+    display.removeFilter(SWT.KeyDown,keyListener);
+
+    return result;
   }
 
   /** edit preferences
