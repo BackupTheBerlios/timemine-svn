@@ -1211,9 +1211,7 @@ Dprintf.dprintf("");
           widgetAddNew.setFont(FONT_TEXT);
           Widgets.layout(widgetAddNew,0,6,TableLayoutData.NSE,2,0);
         }
-        composite.setTabList(new Control[]{widgetSpentHourFraction,widgetSpentMinuteFraction,widgetActivities,widgetComments});
       }
-      group.setTabList(new Control[]{widgetProjects,widgetIssues,composite});
 
       // add listeners
       widgetProjects.addSelectionListener(new SelectionListener()
@@ -2240,7 +2238,6 @@ else { Dprintf.dprintf(""); }
         widgetServerPort.setSelection(loginData.serverPort);
         Widgets.layout(widgetServerPort,0,2,TableLayoutData.WE);
       }
-      subComposite.setTabList(new Control[]{widgetServerName,widgetServerPort});
 
       label = Widgets.newLabel(composite,"Name:");
       Widgets.layout(label,1,0,TableLayoutData.W);
@@ -2255,7 +2252,6 @@ else { Dprintf.dprintf(""); }
       widgetLoginPassword = Widgets.newPassword(composite);
       Widgets.layout(widgetLoginPassword,2,1,TableLayoutData.WE);
     }
-    composite.setTabList(new Control[]{subComposite,widgetLoginName,widgetLoginPassword});
 
     // buttons
     composite = Widgets.newComposite(dialog);
@@ -2494,7 +2490,6 @@ else { Dprintf.dprintf(""); }
             }
           });
         }
-        subSubComposite.setTabList(new Control[]{widgetSpentOn,widgetSpentHourFraction,widgetSpentMinuteFraction});
 
         widgetActivities = Widgets.newSelect(subComposite);
         Widgets.layout(widgetActivities,1,0,TableLayoutData.WE);
@@ -2504,9 +2499,7 @@ else { Dprintf.dprintf(""); }
         Widgets.layout(widgetComments,2,0,TableLayoutData.WE);
         widgetComments.setToolTipText("Time entry comment line.");
       }
-      subComposite.setTabList(new Control[]{widgetActivities,widgetComments});
     }
-    composite.setTabList(new Control[]{widgetProjects,widgetIssues,subComposite});
 
     // buttons
     composite = Widgets.newComposite(dialog);
@@ -2547,7 +2540,7 @@ else { Dprintf.dprintf(""); }
       });
     }
 
-    // listeners
+    // add listeners
     widgetProjects.addSelectionListener(new SelectionListener()
     {
       public void widgetDefaultSelected(SelectionEvent selectionEvent)
@@ -2636,6 +2629,17 @@ else { Dprintf.dprintf(""); }
         widgetSpentMinuteFraction.setSelection(minuteFraction);
       }
     });
+
+    // set next focus
+    Widgets.setNextFocus(widgetProjects,
+                         widgetIssues,
+                         widgetSpentOn,
+                         widgetSpentHourFraction,
+                         widgetSpentMinuteFraction,
+                         widgetActivities,
+                         widgetComments,
+                         widgetSave
+                        );
 
     // get projects, issues, activities
     Redmine.Project[]  projects   = null;
@@ -2779,7 +2783,6 @@ else { Dprintf.dprintf(""); }
           widgetServerPort.setSelection(Settings.serverPort);
           Widgets.layout(widgetServerPort,0,2,TableLayoutData.WE);
         }
-        subComposite.setTabList(new Control[]{widgetServerName,widgetServerPort});
 
         label = Widgets.newLabel(composite,"Login name:");
         Widgets.layout(label,1,0,TableLayoutData.W);
@@ -2788,6 +2791,7 @@ else { Dprintf.dprintf(""); }
         if (Settings.loginName != null) widgetLoginName.setText(Settings.loginName);
         Widgets.layout(widgetLoginName,1,1,TableLayoutData.WE);
       }
+      Widgets.setNextFocus(widgetServerName,widgetServerPort,widgetLoginName);
 
       composite = Widgets.addTab(tabFolder,"Colors");
       composite.setLayout(new TableLayout(1.0,1.0,2));
@@ -3389,7 +3393,7 @@ else { Dprintf.dprintf(""); }
       });
     }
 
-    // listeners
+    // add listeners
 
     return (Boolean)Dialogs.run(dialog,false);
   }
