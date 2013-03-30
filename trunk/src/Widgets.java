@@ -1496,6 +1496,7 @@ class Widgets
       else if (keyCode == SWT.KEYPAD_EQUAL   ) keyCode = '=';
       else if (keyCode == SWT.KEYPAD_CR      ) keyCode = SWT.CR;
 
+      keyCode = Character.toLowerCase(keyCode);
       if ((accelerator & SWT.MODIFIER_MASK) != 0)
       {
         // accelerator has a modified -> match modifier+key code
