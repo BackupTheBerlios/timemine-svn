@@ -75,8 +75,6 @@ import org.eclipse.swt.events.VerifyEvent;
 import org.eclipse.swt.events.VerifyListener;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Cursor;
-import org.eclipse.swt.graphics.Font;
-import org.eclipse.swt.graphics.FontData;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
@@ -92,7 +90,6 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.DateTime;
 import org.eclipse.swt.widgets.Event;
-import org.eclipse.swt.widgets.FontDialog;
 import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.List;
@@ -115,6 +112,10 @@ import org.eclipse.swt.widgets.TreeItem;
 import org.eclipse.swt.widgets.Widget;
 
 /****************************** Classes ********************************/
+
+@interface Warning
+{
+}
 
 /** time entry comparator
  */
@@ -336,10 +337,6 @@ public class Timemine
 
   // images
   public static Image                  IMAGE_PROGRAM_ICON;
-
-  // fonts
-  public static Font                   FONT_TEXT;
-  public static Font                   FONT_LIST;
 
   // cursors
   public static Cursor                 CURSOR_WAIT;
@@ -641,10 +638,6 @@ exception.printStackTrace();
     // get images
     IMAGE_PROGRAM_ICON            = Widgets.loadImage(display,"program-icon.png");
 
-    // fonts
-    FONT_TEXT                     = Widgets.newFont(display,Settings.fontText);
-    FONT_LIST                     = Widgets.newFont(display,Settings.fontList);
-
     // get cursors
     CURSOR_WAIT                   = new Cursor(display,SWT.CURSOR_WAIT);
 
@@ -855,7 +848,6 @@ exception.printStackTrace();
 
       // today time entry list
       widgetTodayTimeEntryTable = Widgets.newTable(widgetTabToday,SWT.MULTI);
-      widgetTodayTimeEntryTable.setFont(FONT_LIST);
       widgetTodayTimeEntryTable.setLayout(new TableLayout(null,new double[]{1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0}));
       Widgets.layout(widgetTodayTimeEntryTable,0,0,TableLayoutData.NSWE);
       SelectionListener selectionListener = new SelectionListener()
@@ -899,68 +891,29 @@ exception.printStackTrace();
           {
             Redmine.TimeEntry timeEntry = (Redmine.TimeEntry)tableItems[0].getData();
 
-            Calendar prevSpentOnCalendar = Calendar.getInstance(); prevSpentOnCalendar.setTime(timeEntry.spentOn);
+            Date prevSpentOn = timeEntry.spentOn;
             if (editTimeEntry(timeEntry,"Edit time entry","Save"))
             {
-              Calendar todayCalendar   = Calendar.getInstance();
-              Calendar spendOnCalendar = Calendar.getInstance(); spendOnCalendar.setTime(timeEntry.spentOn);
-
               try
               {
                 // update time entry
                 redmine.update(timeEntry);
 
-                Redmine.Activity activity = redmine.getActivity(timeEntry.activityId);
-                Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
-                Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
-
-                // update/delete today time entry table entry
-                if (   (spendOnCalendar.get(Calendar.YEAR ) == todayCalendar.get(Calendar.YEAR ))
-                    && (spendOnCalendar.get(Calendar.MONTH) == todayCalendar.get(Calendar.MONTH))
-                    && (spendOnCalendar.get(Calendar.DATE ) == todayCalendar.get(Calendar.DATE ))
-                   )
+                // refresh/remove today time entry table entry
+                if (isToday(timeEntry.spentOn))
                 {
-                  // update
-                  Widgets.updateTableEntry(widgetTodayTimeEntryTable,
-                                           timeEntry,
-                                           formatHours(timeEntry.hours),
-                                           (activity != null) ? activity.name : "",
-                                           (project != null) ? project.name : "",
-                                           (issue != null) ? issue.subject : "",
-                                           timeEntry.comments
-                                          );
+                  // refresh
+                  refreshTableItem(widgetTodayTimeEntryTable,timeEntry);
                 }
                 else
                 {
-                  // delete
-                  Widgets.removeTableEntry(widgetTodayTimeEntryTable,
-                                           timeEntry
-                                          );
+                  // remove
+                  removeTableItem(widgetTodayTimeEntryTable,timeEntry);
                 }
 
                 // refresh tree items
-                for (TreeItem treeItem : widgetTimeEntryTree.getItems())
-                {
-                  if      (treeItem.getData() instanceof Date)
-                  {
-                    Calendar calendar = Calendar.getInstance(); calendar.setTime((Date)treeItem.getData());
-
-                    if (   (   (prevSpentOnCalendar.get(Calendar.YEAR ) == calendar.get(Calendar.YEAR ))
-                            && (prevSpentOnCalendar.get(Calendar.MONTH) == calendar.get(Calendar.MONTH))
-                            && (prevSpentOnCalendar.get(Calendar.DATE ) == calendar.get(Calendar.DATE ))
-                           )
-                        || (   (spendOnCalendar.get(Calendar.YEAR ) == calendar.get(Calendar.YEAR ))
-                            && (spendOnCalendar.get(Calendar.MONTH) == calendar.get(Calendar.MONTH))
-                            && (spendOnCalendar.get(Calendar.DATE ) == calendar.get(Calendar.DATE ))
-                           )
-                       )
-                    {
-                      Event treeEvent = new Event();
-                      treeEvent.item = treeItem;
-                      widget.notifyListeners(SWT.SetData,treeEvent);
-                    }
-                  }
-                }
+                refreshTreeItem(widgetTimeEntryTree,prevSpentOn);
+                refreshTreeItem(widgetTimeEntryTree,timeEntry.spentOn);
               }
               catch (RedmineException exception)
               {
@@ -1096,36 +1049,29 @@ exception.printStackTrace();
 
       // add new entry
       group = Widgets.newGroup(widgetTabToday,"New");
-      group.setFont(FONT_TEXT);
       group.setLayout(new TableLayout(0.0,new double[]{0.0,1.0},2));
       Widgets.layout(group,1,0,TableLayoutData.WE);
       {
         label = Widgets.newLabel(group,"Project:",SWT.NONE,ACCELERATOR_PROJECT);
-        label.setFont(FONT_TEXT);
         Widgets.layout(label,0,0,TableLayoutData.W);
 
         widgetProjects = Widgets.newSelect(group);
-        widgetProjects.setFont(FONT_TEXT);
-        Widgets.layout(widgetProjects,0,1,TableLayoutData.WE);
+        Widgets.layout(widgetProjects,0,1,TableLayoutData.WE,0,2);
 
         label = Widgets.newLabel(group,"Issue:",SWT.NONE,ACCELERATOR_ISSUE);
-        label.setFont(FONT_TEXT);
         Widgets.layout(label,1,0,TableLayoutData.W);
 
         widgetIssues = Widgets.newSelect(group);
-        widgetIssues.setFont(FONT_TEXT);
-        Widgets.layout(widgetIssues,1,1,TableLayoutData.WE);
+        Widgets.layout(widgetIssues,1,1,TableLayoutData.WE,0,2);
 
         label = Widgets.newLabel(group,"Spent:",SWT.NONE,ACCELERATOR_SPENT);
-        label.setFont(FONT_TEXT);
-        Widgets.layout(label,2,0,TableLayoutData.NW);
+        Widgets.layout(label,2,0,TableLayoutData.W);
 
         composite = Widgets.newComposite(group);
         composite.setLayout(new TableLayout(0.0,new double[]{0.0,0.0,0.0,0.0,0.0,1.0,0.0}));
         Widgets.layout(composite,2,1,TableLayoutData.WE);
         {
           widgetSpentHourFraction = Widgets.newSpinner(composite,0);
-          widgetSpentHourFraction.setFont(FONT_TEXT);
           widgetSpentHourFraction.setTextLimit(2);
           widgetSpentHourFraction.setIncrement(1);
           widgetSpentHourFraction.setSelection(0);
@@ -1133,11 +1079,9 @@ exception.printStackTrace();
           widgetSpentHourFraction.setToolTipText("New time entry spent hours.");
 
           label = Widgets.newLabel(composite,"h");
-          label.setFont(FONT_TEXT);
           Widgets.layout(label,0,1,TableLayoutData.W);
 
           widgetSpentMinuteFraction = Widgets.newSpinner(composite);
-          widgetSpentMinuteFraction.setFont(FONT_TEXT);
           widgetSpentMinuteFraction.setSelection(Settings.minTimeDelta);
           widgetSpentMinuteFraction.setTextLimit(2);
           widgetSpentMinuteFraction.setIncrement(Settings.minTimeDelta);
@@ -1145,11 +1089,9 @@ exception.printStackTrace();
           widgetSpentMinuteFraction.setToolTipText("New time entry spent minutes.");
 
           label = Widgets.newLabel(composite,"min");
-          label.setFont(FONT_TEXT);
           Widgets.layout(label,0,3,TableLayoutData.W);
 
           combo = Widgets.newOptionMenu(composite);
-          combo.setFont(FONT_TEXT);
           Widgets.layout(combo,0,4,TableLayoutData.W,0,0,0,0,64,SWT.DEFAULT);
           String[] values = new String[1+8*60/Settings.minTimeDelta];
           values[0] = "";
@@ -1181,25 +1123,19 @@ exception.printStackTrace();
             }
           });
 
-//          label = Widgets.newLabel(composite,"Activity:",SWT.NONE,ACCELERATOR_ACTIVITY);
-//          Widgets.layout(label,3,0,TableLayoutData.W);
-
           widgetActivities = Widgets.newSelect(composite);
-          widgetActivities.setFont(FONT_TEXT);
           Widgets.layout(widgetActivities,0,5,TableLayoutData.WE);
-
-//          label = Widgets.newLabel(composite,"Comments:",SWT.NONE,ACCELERATOR_COMMENTS);
-//          Widgets.layout(label,4,0,TableLayoutData.W);
-
-          widgetComments = Widgets.newText(composite);
-          widgetComments.setFont(FONT_TEXT);
-          Widgets.layout(widgetComments,1,0,TableLayoutData.WE,0,6);
-          widgetComments.setToolTipText("New time entry comment line.");
-
-          widgetAddNew = Widgets.newButton(composite,"Add new",ACCELERATOR_SAVE);
-          widgetAddNew.setFont(FONT_TEXT);
-          Widgets.layout(widgetAddNew,0,6,TableLayoutData.NSE,2,0);
         }
+
+        label = Widgets.newLabel(group,"Comments:",SWT.NONE,ACCELERATOR_COMMENTS);
+        Widgets.layout(label,3,0,TableLayoutData.W);
+
+        widgetComments = Widgets.newText(group);
+        Widgets.layout(widgetComments,3,1,TableLayoutData.WE);
+        widgetComments.setToolTipText("New time entry comment line.");
+
+        widgetAddNew = Widgets.newButton(group,"Add new",ACCELERATOR_SAVE);
+        Widgets.layout(widgetAddNew,2,2,TableLayoutData.NSE,2,0);
       }
 
       // add listeners
@@ -1346,6 +1282,7 @@ exception.printStackTrace();
           {
             redmine.add(timeEntry);
 
+// TODO update tree view?
             Redmine.Activity activity = redmine.getActivity(timeEntry.activityId);
             Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
             Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
@@ -1418,7 +1355,6 @@ exception.printStackTrace();
     {
       // today time entry list
       widgetTimeEntryTree = Widgets.newTree(widgetTabAll,SWT.VIRTUAL|SWT.MULTI);
-      widgetTimeEntryTree.setFont(FONT_LIST);
       widgetTimeEntryTree.setLayout(new TableLayout(null,new double[]{1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0}));
       Widgets.layout(widgetTimeEntryTree,0,0,TableLayoutData.NSWE);
       Widgets.addTreeColumn(widgetTimeEntryTree,"Spent on",SWT.LEFT,  80,true);
@@ -1548,85 +1484,36 @@ exception.printStackTrace();
             {
               Redmine.TimeEntry timeEntry = (Redmine.TimeEntry)treeItem.getData();
 
-              Calendar prevSpentOnCalendar = Calendar.getInstance(); prevSpentOnCalendar.setTime(timeEntry.spentOn);
+              Date prevSpentOn = timeEntry.spentOn;
               if (editTimeEntry(timeEntry,"Edit time entry","Save"))
               {
-                Calendar todayCalendar   = Calendar.getInstance();
-                Calendar spendOnCalendar = Calendar.getInstance(); spendOnCalendar.setTime(timeEntry.spentOn);
-
                 try
                 {
                   // update time entry
                   redmine.update(timeEntry);
 
-                  Redmine.Activity activity = redmine.getActivity(timeEntry.activityId);
-                  Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
-                  Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
-
                   // refresh tree items
-                  for (TreeItem refreshTreeItem : widgetTimeEntryTree.getItems())
-                  {
-                    if      (refreshTreeItem.getData() instanceof Date)
-                    {
-                      Calendar calendar = Calendar.getInstance(); calendar.setTime((Date)refreshTreeItem.getData());
+                  refreshTreeItem(widget,prevSpentOn);
+                  refreshTreeItem(widget,timeEntry.spentOn);
 
-                      if (   (   (prevSpentOnCalendar.get(Calendar.YEAR ) == calendar.get(Calendar.YEAR ))
-                              && (prevSpentOnCalendar.get(Calendar.MONTH) == calendar.get(Calendar.MONTH))
-                              && (prevSpentOnCalendar.get(Calendar.DATE ) == calendar.get(Calendar.DATE ))
-                             )
-                          || (   (spendOnCalendar.get(Calendar.YEAR ) == calendar.get(Calendar.YEAR ))
-                              && (spendOnCalendar.get(Calendar.MONTH) == calendar.get(Calendar.MONTH))
-                              && (spendOnCalendar.get(Calendar.DATE ) == calendar.get(Calendar.DATE ))
-                             )
-                         )
-                      {
-                        Event treeEvent = new Event();
-                        treeEvent.item = refreshTreeItem;
-                        widget.notifyListeners(SWT.SetData,treeEvent);
-                      }
-                    }
-                  }
-
-                  // update/add/delete today time entry table entry
-                  if (   (spendOnCalendar.get(Calendar.YEAR ) == todayCalendar.get(Calendar.YEAR ))
-                      && (spendOnCalendar.get(Calendar.MONTH) == todayCalendar.get(Calendar.MONTH))
-                      && (spendOnCalendar.get(Calendar.DATE ) == todayCalendar.get(Calendar.DATE ))
-                     )
+                  // refresh/add/remove today time entry table entry
+                  if (isToday(timeEntry.spentOn))
                   {
-                    if (   (prevSpentOnCalendar.get(Calendar.YEAR ) == todayCalendar.get(Calendar.YEAR ))
-                        && (prevSpentOnCalendar.get(Calendar.MONTH) == todayCalendar.get(Calendar.MONTH))
-                        && (prevSpentOnCalendar.get(Calendar.DATE ) == todayCalendar.get(Calendar.DATE ))
-                       )
+                    if (isToday(prevSpentOn))
                     {
-                      // update
-                      Widgets.updateTableEntry(widgetTodayTimeEntryTable,
-                                               timeEntry,
-                                               formatHours(timeEntry.hours),
-                                               (activity != null) ? activity.name : "",
-                                               (project != null) ? project.name : "",
-                                               (issue != null) ? issue.subject : "",
-                                               timeEntry.comments
-                                              );
+                      // refresh
+                      refreshTableItem(widgetTodayTimeEntryTable,timeEntry);
                     }
                     else
                     {
                       // add
-                      Widgets.addTableEntry(widgetTodayTimeEntryTable,
-                                            timeEntry,
-                                            formatHours(timeEntry.hours),
-                                            (activity != null) ? activity.name : "",
-                                            (project != null) ? project.name : "",
-                                            (issue != null) ? issue.subject : "",
-                                            timeEntry.comments
-                                           );
+                      addTableItem(widgetTodayTimeEntryTable,timeEntry);
                     }
                   }
                   else
                   {
-                    // delete
-                    Widgets.removeTableEntry(widgetTodayTimeEntryTable,
-                                             timeEntry
-                                            );
+                    // remove
+                    removeTableItem(widgetTodayTimeEntryTable,timeEntry);
                   }
                 }
                 catch (RedmineException exception)
@@ -1725,6 +1612,7 @@ exception.printStackTrace();
                    || Widgets.isAccelerator(keyEvent,SWT.INSERT)
                   )
           {
+            // get date of selected day or date of today
             Date date;
             if (treeItems.length > 0)
             {
@@ -1740,7 +1628,7 @@ exception.printStackTrace();
               date = new Date();
             }
 
-  Dprintf.dprintf("");
+            // create new time entry
             Redmine.TimeEntry timeEntry = redmine.new TimeEntry(Redmine.ID_NONE,
                                                                 Redmine.ID_NONE,
                                                                 redmine.getDefaultActivityId(),
@@ -1751,7 +1639,27 @@ exception.printStackTrace();
 
             if (editTimeEntry(timeEntry,"Add time entry","Add"))
             {
-  Dprintf.dprintf("");
+Dprintf.dprintf("");
+              try
+              {
+                redmine.add(timeEntry);
+
+                // refresh tree items
+                refreshTreeItem(widget,timeEntry.spentOn);
+
+                // add today time entry table entry
+                if (isToday(timeEntry.spentOn))
+                {
+                  TableItem tableItem = addTableItem(widgetTodayTimeEntryTable,timeEntry);
+                  widgetTodayTimeEntryTable.setSelection(tableItem);
+                }
+
+              }
+              catch (RedmineException exception)
+              {
+                Dialogs.error(shell,"Cannot add time entry (error: "+exception.getMessage()+")");
+              }
+
             }
           }
           else if (   Widgets.isAccelerator(keyEvent,Settings.keyDeleteTimeEntry)
@@ -2414,6 +2322,20 @@ Dprintf.dprintf("");
     return String.format("%02d:%02d",(int)Math.floor(hours),(((int)Math.floor(hours*100.0)%100)*60)/100);
   }
 
+  /** check if date is today
+   * @param date date to check
+   * @return true iff date is today
+   */
+  private boolean isToday(Date date)
+  {
+    Calendar todayCalendar = Calendar.getInstance();
+    Calendar calendar      = Calendar.getInstance(); calendar.setTime(date);
+
+    return    (calendar.get(Calendar.YEAR ) == todayCalendar.get(Calendar.YEAR ))
+           && (calendar.get(Calendar.MONTH) == todayCalendar.get(Calendar.MONTH))
+           && (calendar.get(Calendar.DATE ) == todayCalendar.get(Calendar.DATE ));
+  }
+
   /** set sub-tree time entries
    * @param treeItem parent tree item
    * @param timeEntries time entries to set
@@ -2452,6 +2374,84 @@ Dprintf.dprintf("");
     treeItem.removeAll();
     new TreeItem(treeItem,SWT.NONE);
     treeItem.setExpanded(false);
+  }
+
+  /** add time entry to table
+   * @param table table widget
+   * @param timeEntry time entry to add
+   */
+  private TableItem addTableItem(Table table, Redmine.TimeEntry timeEntry)
+  {
+    Redmine.Activity activity = redmine.getActivity(timeEntry.activityId);
+    Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
+    Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
+
+    return Widgets.addTableEntry(widgetTodayTimeEntryTable,
+                                 timeEntry,
+                                 formatHours(timeEntry.hours),
+                                 (activity != null) ? activity.name : "",
+                                 (project != null) ? project.name : "",
+                                 (issue != null) ? issue.subject : "",
+                                 timeEntry.comments
+                                );
+  }
+
+  /** remove time entry from table
+   * @param table table widget
+   * @param timeEntry time entry to remove
+   */
+  private void removeTableItem(Table table, Redmine.TimeEntry timeEntry)
+  {
+    Widgets.removeTableEntry(widgetTodayTimeEntryTable,timeEntry);
+  }
+
+  /** refresh time entry in table
+   * @param table table widget
+   * @param timeEntry time entry to refresh
+   */
+  private void refreshTableItem(Table table, Redmine.TimeEntry timeEntry)
+  {
+    Redmine.Activity activity = redmine.getActivity(timeEntry.activityId);
+    Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
+    Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
+
+    Widgets.updateTableEntry(widgetTodayTimeEntryTable,
+                             timeEntry,
+                             formatHours(timeEntry.hours),
+                             (activity != null) ? activity.name : "",
+                             (project != null) ? project.name : "",
+                             (issue != null) ? issue.subject : "",
+                             timeEntry.comments
+                            );
+  }
+
+  /** refresh time entry in tree
+   * @param tree tree widget
+   * @param date date of time entry to refresh
+   */
+  private void refreshTreeItem(Tree tree, Date date)
+  {
+Dprintf.dprintf("refreshTreeItem=%s",date);
+    Calendar calendar0 = Calendar.getInstance(); calendar0.setTime(date);
+    for (TreeItem refreshTreeItem : tree.getItems())
+    {
+      if      (refreshTreeItem.getData() instanceof Date)
+      {
+        Calendar calendar1 = Calendar.getInstance(); calendar1.setTime((Date)refreshTreeItem.getData());
+
+        if (   (calendar0.get(Calendar.YEAR ) == calendar1.get(Calendar.YEAR ))
+            && (calendar0.get(Calendar.MONTH) == calendar1.get(Calendar.MONTH))
+            && (calendar0.get(Calendar.DATE ) == calendar1.get(Calendar.DATE ))
+           )
+        {
+          Event treeEvent = new Event();
+          treeEvent.item = refreshTreeItem;
+Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
+          tree.notifyListeners(SWT.SetData,treeEvent);
+          break;
+        }
+      }
+    }
   }
 
   /** edit time entry
@@ -2944,7 +2944,6 @@ Dprintf.dprintf("");
     final Text    widgetLoginName;
 
     final Table   widgetColors;
-    final Table   widgetFonts;
 
     final Text    widgetDateFormat;
     final Table   widgetShowFlags;
@@ -3029,51 +3028,6 @@ Dprintf.dprintf("");
         addColors(widgetColors);
       }
 
-      composite = Widgets.addTab(tabFolder,"Fonts");
-      composite.setLayout(new TableLayout(1.0,1.0,2));
-      Widgets.layout(composite,0,2,TableLayoutData.NSWE);
-      {
-        widgetFonts = Widgets.newTable(composite);
-        Widgets.layout(widgetFonts,0,0,TableLayoutData.NSWE);
-        Widgets.addTableColumn(widgetFonts,0,"Name",SWT.LEFT,200,true);
-        Widgets.addTableColumn(widgetFonts,1,"Font",SWT.LEFT,100,true);
-        widgetFonts.addMouseListener(new MouseListener()
-        {
-          public void mouseDoubleClick(MouseEvent mouseEvent)
-          {
-            Table widget = (Table)mouseEvent.widget;
-
-            int index = widget.getSelectionIndex();
-            if (index >= 0)
-            {
-              TableItem tableItem = widget.getItem(index);
-              String    name      = tableItem.getText(0);
-              FontData  fontData  = (FontData)tableItem.getData();
-
-              FontDialog fontDialog = new FontDialog(dialog);
-              fontDialog.setFontList(new FontData[]{fontData});
-              FontData newFontData = fontDialog.open();
-              if (newFontData != null)
-              {
-                fontData.setName(newFontData.getName());
-                fontData.setHeight(newFontData.getHeight());
-                fontData.setStyle(newFontData.getStyle());
-                Widgets.updateTableEntry(widgetFonts,fontData,null,Widgets.fontDataToText(fontData));
-                Widgets.setTableEntryFont(widgetFonts,fontData,1,fontData);
-              }
-            }
-          }
-          public void mouseDown(MouseEvent mouseEvent)
-          {
-          }
-          public void mouseUp(MouseEvent mouseEvent)
-          {
-          }
-        });
-        widgetFonts.setToolTipText("Fonts list.");
-        addFonts(widgetFonts);
-      }
-
       composite = Widgets.addTab(tabFolder,"Misc");
       composite.setLayout(new TableLayout(new double[]{0.0,1.0,0.0},new double[]{0.0,1.0},2));
       Widgets.layout(composite,0,7,TableLayoutData.NSWE);
@@ -3140,7 +3094,6 @@ Dprintf.dprintf("");
           Settings.loginName  = widgetLoginName.getText();
 
           saveColors(widgetColors);
-          saveFonts(widgetFonts);
 
           Settings.dateFormat = widgetDateFormat.getText().trim();
 
@@ -3262,55 +3215,10 @@ Dprintf.dprintf("");
     }
   }
 
-  /** add fonts to fonts list
+  /** save colors
+   * @param widgetColors color widget
+   * @return
    */
-  private void addFonts(Table widgetFonts)
-  {
-    try
-    {
-      // instantiate config adapter class
-      Constructor         constructor         = Settings.SettingValueAdapterFontData.class.getDeclaredConstructor(Settings.class);
-      SettingValueAdapter settingValueAdapter = (SettingValueAdapter)constructor.newInstance(new Settings());
-
-      // get setting classes
-      Class[] settingClasses = Settings.getSettingClasses();
-      for (Class clazz : settingClasses)
-      {
-        for (Field field : clazz.getDeclaredFields())
-        {
-          for (Annotation annotation : field.getDeclaredAnnotations())
-          {
-            if      (annotation instanceof SettingValue)
-            {
-              SettingValue configValue = (SettingValue)annotation;
-              if (Settings.SettingValueAdapterFontData.class.isAssignableFrom(configValue.type()))
-              {
-                // get font data
-                FontData fontData = (FontData)field.get(null);
-
-                // get name
-                String name = (!configValue.name().isEmpty()) ? configValue.name() : field.getName();
-
-                // convert to string
-                String string = (String)settingValueAdapter.toString(field.get(null));
-
-                // add entry
-                fontData = (fontData != null) ? new FontData(fontData.getName(),(int)fontData.getHeight(),fontData.getStyle()) : new FontData();
-                Widgets.addTableEntry(widgetFonts,fontData,name.substring(4),string);
-                Widgets.setTableEntryFont(widgetFonts,fontData,1,fontData);
-              }
-            }
-          }
-        }
-      }
-    }
-    catch (Exception exception)
-    {
-      // cannot happen
-      Timemine.printInternalError(exception);
-    }
-  }
-
   private void saveColors(Table widgetColors)
   {
     try
@@ -3353,62 +3261,6 @@ Dprintf.dprintf("");
                 if (!found)
                 {
                   Timemine.printInternalError("Color %s not found in table!",name);
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    catch (Exception exception)
-    {
-      // cannot happen
-      Timemine.printInternalError(exception);
-    }
-  }
-
-  private void saveFonts(Table widgetFonts)
-  {
-    try
-    {
-      // instantiate config adapter class
-      Constructor         constructor         = Settings.SettingValueAdapterFontData.class.getDeclaredConstructor(Settings.class);
-      SettingValueAdapter settingValueAdapter = (SettingValueAdapter)constructor.newInstance(new Settings());
-
-      // get setting classes
-      Class[] settingClasses = Settings.getSettingClasses();
-      for (Class clazz : settingClasses)
-      {
-        for (Field field : clazz.getDeclaredFields())
-        {
-          for (Annotation annotation : field.getDeclaredAnnotations())
-          {
-            if      (annotation instanceof SettingValue)
-            {
-              SettingValue configValue = (SettingValue)annotation;
-              if (Settings.SettingValueAdapterFontData.class.isAssignableFrom(configValue.type()))
-              {
-                // get font data
-                FontData fontData = (FontData)field.get(null);
-
-                // get name
-                String name = (!configValue.name().isEmpty()) ? configValue.name() : field.getName();
-
-                // set font
-                name = name.substring(4);
-                boolean found = false;
-                for (TableItem tableItem : widgetFonts.getItems())
-                {
-                  if (name.equals(tableItem.getText(0)))
-                  {
-                    field.set(null,tableItem.getData());
-                    found = true;
-                    break;
-                  }
-                }
-                if (!found)
-                {
-                  Timemine.printInternalError("Font %s not found in table!",name);
                 }
               }
             }
