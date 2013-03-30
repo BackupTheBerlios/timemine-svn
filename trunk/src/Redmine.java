@@ -1140,20 +1140,22 @@ public class Redmine
     for (int i = 0; i < timeEntries.size(); i++)
     {
       // get soft-reference for entry
-      TimeEntry timeEntry = timeEntries.get(i).get();
-      if (timeEntry == null)
+      SoftReference<TimeEntry> softReference = timeEntries.get(i);
+      if ((softReference == null) || (softReference.get() == null))
       {
 //Dprintf.dprintf("fill %d length %d",i,ENTRY_LIMIT);
         // fill time entry array (get as much data a possible with single request)
         fillTimeEntry(i,ENTRY_LIMIT);
 
         // get soft-reference for entry
-        timeEntry = timeEntries.get(i).get();
+        softReference = timeEntries.get(i);
       }
 
       // get time entry
-      if (timeEntry != null)
+      if ((softReference != null) && (softReference.get() != null))
       {
+        TimeEntry timeEntry = softReference.get();
+
         if (matchTimeEntry(timeEntry,projectId,issueId,userId,spentOn))
         {
 //Dprintf.dprintf("calendar0=%s calendar1=%s",calendar0,calendar1);
@@ -1210,7 +1212,7 @@ public class Redmine
     {
       // get soft-reference for entry
       SoftReference<TimeEntry> softReference = timeEntries.get(i);
-      if (softReference == null)
+      if ((softReference == null) || (softReference.get() == null))
       {
         // fill time entry array (get as much data a possible with single request)
         fillTimeEntry(i,ENTRY_LIMIT);
@@ -1220,7 +1222,7 @@ public class Redmine
       }
 
       // get time entry
-      if (softReference != null)
+      if ((softReference != null) && (softReference.get() != null))
       {
         TimeEntry timeEntry = softReference.get();
 
@@ -1298,7 +1300,7 @@ public class Redmine
     {
       // get soft-reference for entry
       SoftReference<TimeEntry> softReference = timeEntries.get(i);
-      if (softReference == null)
+      if ((softReference == null) || (softReference.get() == null))
       {
         // fill time entry array (get as much data a possible with single request)
         fillTimeEntry(i,ENTRY_LIMIT);
@@ -1308,7 +1310,7 @@ public class Redmine
       }
 
       // get time entry
-      if (softReference != null)
+      if ((softReference != null) && (softReference.get() != null))
       {
         TimeEntry timeEntry = softReference.get();
 
@@ -1376,7 +1378,7 @@ public class Redmine
     for (int i = 0; i < timeEntries.size(); i++)
     {
       SoftReference<TimeEntry> softReference = timeEntries.get(i);
-      if (softReference != null)
+      if ((softReference != null) && (softReference.get() != null))
       {
         TimeEntry timeEntry = softReference.get();
 
@@ -1834,6 +1836,7 @@ Dprintf.dprintf("");
         System.err.println("DEBUG: xml data ");
         StreamResult streamResult = new StreamResult(System.err);
         transformer.transform(domSource,streamResult);
+        System.err.println("");
       }
       StreamResult streamResult = new StreamResult(connection.getOutputStream());
       transformer.transform(domSource,streamResult);
