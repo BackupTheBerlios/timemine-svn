@@ -501,6 +501,10 @@ public class Settings
 
   @SettingComment(text={"","Accelerator keys"})
   @SettingValue(type=SettingValueAdapterKey.class)
+  public static int                      keyTabTodayTimeEntries                 = SWT.F5;
+  @SettingValue(type=SettingValueAdapterKey.class)
+  public static int                      keyTabTimeEntries                      = SWT.F6;
+  @SettingValue(type=SettingValueAdapterKey.class)
   public static int                      keySelectProject                       = SWT.CTRL+'P';
   @SettingValue(type=SettingValueAdapterKey.class)
   public static int                      keySelectIssue                         = SWT.CTRL+'I';
@@ -508,6 +512,8 @@ public class Settings
   public static int                      keySelectSpentHours                    = SWT.CTRL+'S';
   @SettingValue(type=SettingValueAdapterKey.class)
   public static int                      keyEditTimeEntry                       = SWT.NONE;
+  @SettingValue(type=SettingValueAdapterKey.class)
+  public static int                      keyNewTimeEntry                        = SWT.INSERT;
   @SettingValue(type=SettingValueAdapterKey.class)
   public static int                      keySaveTimeEntry                       = SWT.CTRL+'S';
 
