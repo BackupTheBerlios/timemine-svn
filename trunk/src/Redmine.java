@@ -634,20 +634,31 @@ public class Redmine
 
   private int                                 ownUserId;
 
-  private SoftHashMap<Integer,User>           userMap                          = new SoftHashMap<Integer,User>();
-  private SoftHashMap<Integer,Tracker>        trackerMap                       = new SoftHashMap<Integer,Tracker>();
-  private SoftHashMap<Integer,Status>         statusMap                        = new SoftHashMap<Integer,Status>();
-  private SoftHashMap<Integer,Priority>       priorityMap                      = new SoftHashMap<Integer,Priority>();
-  private SoftHashMap<Integer,Activity>       activityMap                      = new SoftHashMap<Integer,Activity>();
-  private SoftHashMap<Integer,Project>        projectMap                       = new SoftHashMap<Integer,Project>();
-  private int                                 projectsTotal                    = 0;
-  private SoftHashMap<Integer,Issue>          issueMap                         = new SoftHashMap<Integer,Issue>();
-  private int                                 issuesTotal                      = 0;
-  private HashMap<Integer,Integer>            timeEntryIdMap                   = new HashMap<Integer,Integer>();   // map id -> index
-  private HashMap<Date,Integer>               timeEntryDateMap                 = new HashMap<Date,Integer>();   // map date -> index
-  private ArrayList<SoftReference<TimeEntry>> timeEntries                      = new ArrayList<SoftReference<TimeEntry>>();
+  private SoftHashMap<Integer,User>           userMap                    = new SoftHashMap<Integer,User>();
+  private long                                userMapUpdateTimeStamp     = 0L;
+  private SoftHashMap<Integer,Tracker>        trackerMap                 = new SoftHashMap<Integer,Tracker>();
+  private long                                trackerMapUpdateTimeStamp  = 0L;
+  private SoftHashMap<Integer,Status>         statusMap                  = new SoftHashMap<Integer,Status>();
+  private long                                statusMapUpdateTimeStamp   = 0L;
+  private SoftHashMap<Integer,Priority>       priorityMap                = new SoftHashMap<Integer,Priority>();
+  private long                                priorityMapUpdateTimeStamp = 0L;
+  private SoftHashMap<Integer,Activity>       activityMap                = new SoftHashMap<Integer,Activity>();
+  private long                                activityMapUpdateTimeStamp = 0L;
+
+  private SoftHashMap<Integer,Project>        projectMap                 = new SoftHashMap<Integer,Project>();
+  private long                                projectMapUpdateTimeStamp  = 0L;
+  private int                                 projectsTotal              = 0;
+
+  private SoftHashMap<Integer,Issue>          issueMap                   = new SoftHashMap<Integer,Issue>();
+  private int                                 issuesTotal                = 0;
+  private int                                 issueMapProjectId          = ID_NONE;
+  private long                                issueMapUpdateTimeStamp    = 0L;
+
+  private HashMap<Integer,Integer>            timeEntryIdMap             = new HashMap<Integer,Integer>();   // map id -> index
+  private HashMap<Date,Integer>               timeEntryDateMap           = new HashMap<Date,Integer>();   // map date -> index
+  private ArrayList<SoftReference<TimeEntry>> timeEntries                = new ArrayList<SoftReference<TimeEntry>>();
   private Date                                timeEntryStartDate;
-  private long                                lastTimeEntryDataUpdateTimeStamp = 0L;
+  private long                                timeEntriesUpdateTimeStamp = 0L;
 
   // ------------------------ native functions ----------------------------
 
@@ -695,27 +706,32 @@ public class Redmine
   public synchronized SoftHashMap<Integer,User> getUsers()
     throws RedmineException
   {
-    userMap.clear();
-    getData("/users","user",new ParseElementHandler<User>()
+    if (System.currentTimeMillis() > (userMapUpdateTimeStamp+Settings.cacheExpireTime*1000))
     {
-      public void data(Element element)
+      userMap.clear();
+      getData("/users","user",new ParseElementHandler<User>()
       {
-        User user = new User(getIntValue(element,"id"),
-                             getValue(element,"firstname"),
-                             getValue(element,"lastname"),
-                             getValue(element,"login"),
-                             getValue(element,"mail"),
-                             getDateValue(element,"created_on"),
-                             getDateValue(element,"last_login_in")
-                            );
+        public void data(Element element)
+        {
+          User user = new User(getIntValue(element,"id"),
+                               getValue(element,"firstname"),
+                               getValue(element,"lastname"),
+                               getValue(element,"login"),
+                               getValue(element,"mail"),
+                               getDateValue(element,"created_on"),
+                               getDateValue(element,"last_login_in")
+                              );
 
-        store(user);
-      }
-      public void store(int index, User user)
-      {
-        userMap.put(user.id,user);
-      }
-    });
+          store(user);
+        }
+        public void store(int index, User user)
+        {
+          userMap.put(user.id,user);
+        }
+      });
+
+      userMapUpdateTimeStamp = System.currentTimeMillis();
+    }
 
     return userMap;
   }
@@ -743,22 +759,27 @@ public class Redmine
   public synchronized SoftHashMap<Integer,Tracker> getTrackers()
     throws RedmineException
   {
-    trackerMap.clear();
-    getData("/trackers","tracker",new ParseElementHandler<Tracker>()
+    if (System.currentTimeMillis() > (trackerMapUpdateTimeStamp+Settings.cacheExpireTime*1000))
     {
-      public void data(Element element)
+      trackerMap.clear();
+      getData("/trackers","tracker",new ParseElementHandler<Tracker>()
       {
-        Tracker tracker = new Tracker(getIntValue(element,"id"),
-                                      getValue(element,"name")
-                                     );
+        public void data(Element element)
+        {
+          Tracker tracker = new Tracker(getIntValue(element,"id"),
+                                        getValue(element,"name")
+                                       );
 
-        store(tracker);
-      }
-      public void store(int index, Tracker tracker)
-      {
-        trackerMap.put(tracker.id,tracker);
-      }
-    });
+          store(tracker);
+        }
+        public void store(int index, Tracker tracker)
+        {
+          trackerMap.put(tracker.id,tracker);
+        }
+      });
+
+      trackerMapUpdateTimeStamp = System.currentTimeMillis();
+    }
 
     return trackerMap;
   }
@@ -769,22 +790,27 @@ public class Redmine
   public SoftHashMap<Integer,Status> getStatus()
     throws RedmineException
   {
-    statusMap.clear();
-    getData("/issue_statuses","issue_status",new ParseElementHandler<Status>()
+    if (System.currentTimeMillis() > (statusMapUpdateTimeStamp+Settings.cacheExpireTime*1000))
     {
-      public void data(Element element)
+      statusMap.clear();
+      getData("/issue_statuses","issue_status",new ParseElementHandler<Status>()
       {
-        Status status = new Status(getIntValue(element,"id"),
-                                   getValue(element,"name")
-                                  );
+        public void data(Element element)
+        {
+          Status status = new Status(getIntValue(element,"id"),
+                                     getValue(element,"name")
+                                    );
 
-        store(status);
-      }
-      public void store(int index, Status status)
-      {
-        statusMap.put(status.id,status);
-      }
-    });
+          store(status);
+        }
+        public void store(int index, Status status)
+        {
+          statusMap.put(status.id,status);
+        }
+      });
+
+      statusMapUpdateTimeStamp = System.currentTimeMillis();
+    }
 
     return statusMap;
   }
@@ -795,23 +821,28 @@ public class Redmine
   public SoftHashMap<Integer,Priority> getPriorities()
     throws RedmineException
   {
-    priorityMap.clear();
-    getData("/enumerations/issue_priorities","issue_priority",new ParseElementHandler<Priority>()
+    if (System.currentTimeMillis() > (priorityMapUpdateTimeStamp+Settings.cacheExpireTime*1000))
     {
-      public void data(Element element)
+      priorityMap.clear();
+      getData("/enumerations/issue_priorities","issue_priority",new ParseElementHandler<Priority>()
       {
-        Priority priority = new Priority(getIntValue(element,"id"),
-                                         getValue(element,"name"),
-                                         getBooleanValue(element,"is_default")
-                                        );
+        public void data(Element element)
+        {
+          Priority priority = new Priority(getIntValue(element,"id"),
+                                           getValue(element,"name"),
+                                           getBooleanValue(element,"is_default")
+                                          );
 
-        store(priority);
-      }
-      public void store(int index, Priority priority)
-      {
-        priorityMap.put(priority.id,priority);
-      }
-    });
+          store(priority);
+        }
+        public void store(int index, Priority priority)
+        {
+          priorityMap.put(priority.id,priority);
+        }
+      });
+
+      priorityMapUpdateTimeStamp = System.currentTimeMillis();
+    }
 
     return priorityMap;
   }
@@ -840,23 +871,28 @@ public class Redmine
   public synchronized SoftHashMap<Integer,Activity> getActivities()
     throws RedmineException
   {
-    activityMap.clear();
-    getData("/enumerations/time_entry_activities","time_entry_activity",new ParseElementHandler<Activity>()
+    if (System.currentTimeMillis() > (activityMapUpdateTimeStamp+Settings.cacheExpireTime*1000))
     {
-      public void data(Element element)
+      activityMap.clear();
+      getData("/enumerations/time_entry_activities","time_entry_activity",new ParseElementHandler<Activity>()
       {
-        Activity activity = new Activity(getIntValue(element,"id"),
-                                         getValue(element,"name"),
-                                         getBooleanValue(element,"is_default")
-                                        );
+        public void data(Element element)
+        {
+          Activity activity = new Activity(getIntValue(element,"id"),
+                                           getValue(element,"name"),
+                                           getBooleanValue(element,"is_default")
+                                          );
 
-        store(activity);
-      }
-      public void store(int index, Activity activity)
-      {
-        activityMap.put(activity.id,activity);
-      }
-    });
+          store(activity);
+        }
+        public void store(int index, Activity activity)
+        {
+          activityMap.put(activity.id,activity);
+        }
+      });
+
+      activityMapUpdateTimeStamp = System.currentTimeMillis();
+    }
 
     return activityMap;
   }
@@ -913,47 +949,42 @@ public class Redmine
   }
 
   /** get Redmine projects
-   * @param clearFlag true to clear map before refresh
    * @return project hash map <id,project>
    */
-  public synchronized SoftHashMap<Integer,Project> getProjects(boolean clearFlag)
+  public synchronized SoftHashMap<Integer,Project> getProjects()
     throws RedmineException
   {
-    if (clearFlag) projectMap.clear();
-    getData("/projects","project",new ParseElementHandler<Project>()
+    if (System.currentTimeMillis() > (projectMapUpdateTimeStamp+Settings.cacheExpireTime*1000))
     {
-      public void root(Element element)
+      projectMap.clear();
+      getData("/projects","project",new ParseElementHandler<Project>()
       {
-        projectsTotal = getIntAttribute(element,"total_count");
-      }
-      public void data(Element element)
-      {
-        Project project = new Project(getIntValue(element,"id"),
-                                      getValue(element,"name"),
-                                      getValue(element,"identifier"),
-                                      getValue(element,"description"),
-                                      getDateValue(element,"created_on"),
-                                      getDateValue(element,"updated_on")
-                                     );
+        public void root(Element element)
+        {
+          projectsTotal = getIntAttribute(element,"total_count");
+        }
+        public void data(Element element)
+        {
+          Project project = new Project(getIntValue(element,"id"),
+                                        getValue(element,"name"),
+                                        getValue(element,"identifier"),
+                                        getValue(element,"description"),
+                                        getDateValue(element,"created_on"),
+                                        getDateValue(element,"updated_on")
+                                       );
 
-        store(project);
-      }
-      public void store(int index, Project project)
-      {
-        projectMap.put(project.id,project);
-      }
-    });
+          store(project);
+        }
+        public void store(int index, Project project)
+        {
+          projectMap.put(project.id,project);
+        }
+      });
+
+      projectMapUpdateTimeStamp = System.currentTimeMillis();
+    }
 
     return projectMap;
-  }
-
-  /** get Redmine projects
-   * @return project hash map <id,project>
-   */
-  public SoftHashMap<Integer,Project> getProjects()
-    throws RedmineException
-  {
-    return getProjects(false);
   }
 
   /** get Redmine projects as an array
@@ -963,7 +994,8 @@ public class Redmine
   public Project[] getProjectArray(boolean refreshFlag)
     throws RedmineException
   {
-    getProjects(refreshFlag);
+    if (refreshFlag) clearProjectCache();
+    getProjects();
     return projectMap.values().toArray(new Redmine.Project[projectMap.size()]);
   }
 
@@ -1001,61 +1033,58 @@ public class Redmine
 
   /** get Redmine issues
    * @param projectId project id or ID_ANY
-   * @param clearFlag true to clear map before refresh
    * @return issue hash map <id,issue>
    */
-  public synchronized SoftHashMap<Integer,Issue> getIssues(final int projectId, boolean clearFlag)
+  public synchronized SoftHashMap<Integer,Issue> getIssues(final int projectId)
     throws RedmineException
   {
-    if (clearFlag) issueMap.clear();
-    getData("/issues","issue",new ParseElementHandler<Issue>()
+    if (   (System.currentTimeMillis() > (issueMapUpdateTimeStamp+Settings.cacheExpireTime*1000))
+        || ((issueMapProjectId != ID_ANY) && (projectId != issueMapProjectId))
+       )
     {
-      public void root(Element element)
+      issueMap.clear();
+      getData("/issues","issue",new ParseElementHandler<Issue>()
       {
-        issuesTotal = getIntAttribute(element,"total_count");
-      }
-      public void data(Element element)
-      {
-        if (   (projectId == ID_ANY)
-            || (getIntAttribute(element,"project","id") == projectId)
-           )
+        public void root(Element element)
         {
-          Issue issue = new Issue(getIntValue(element,"id"),
-                                  getIntAttribute(element,"project","id"),
-                                  getIntAttribute(element,"tracker","id"),
-                                  getIntAttribute(element,"status","id"),
-                                  getIntAttribute(element,"priority","id"),
-                                  getIntAttribute(element,"author","id"),
-                                  getValue(element,"subject" ),
-                                  getValue(element,"description"),
-                                  getDateValue(element,"start_date"),
-                                  getDateValue(element,"due_date"),
-                                  getIntValue(element,"done_ratio"),
-                                  getDoubleValue(element,"estimated_hours" ),
-                                  getDateValue(element,"created_on"),
-                                  getDateValue(element,"updated_on"),
-                                  getDateValue(element,"closed_on")
-                                 );
-          store(issue);
+          issuesTotal = getIntAttribute(element,"total_count");
         }
-      }
-      public void store(int index, Issue issue)
-      {
-        issueMap.put(issue.id,issue);
-      }
-    });
+        public void data(Element element)
+        {
+          if (   (projectId == ID_ANY)
+              || (getIntAttribute(element,"project","id") == projectId)
+             )
+          {
+            Issue issue = new Issue(getIntValue(element,"id"),
+                                    getIntAttribute(element,"project","id"),
+                                    getIntAttribute(element,"tracker","id"),
+                                    getIntAttribute(element,"status","id"),
+                                    getIntAttribute(element,"priority","id"),
+                                    getIntAttribute(element,"author","id"),
+                                    getValue(element,"subject" ),
+                                    getValue(element,"description"),
+                                    getDateValue(element,"start_date"),
+                                    getDateValue(element,"due_date"),
+                                    getIntValue(element,"done_ratio"),
+                                    getDoubleValue(element,"estimated_hours" ),
+                                    getDateValue(element,"created_on"),
+                                    getDateValue(element,"updated_on"),
+                                    getDateValue(element,"closed_on")
+                                   );
+            store(issue);
+          }
+        }
+        public void store(int index, Issue issue)
+        {
+          issueMap.put(issue.id,issue);
+        }
+      });
+
+      issueMapUpdateTimeStamp = System.currentTimeMillis();
+      issueMapProjectId       = projectId;
+    }
 
     return issueMap;
-  }
-
-  /** get Redmine issues
-   * @param projectId project id
-   * @return issue hash map <id,issue>
-   */
-  public SoftHashMap<Integer,Issue> getIssues(int projectId)
-    throws RedmineException
-  {
-    return getIssues(projectId,false);
   }
 
   /** get Redmine issues as an array
@@ -1066,7 +1095,8 @@ public class Redmine
   public Issue[] getIssueArray(int projectId, boolean refreshFlag)
     throws RedmineException
   {
-    getIssues(projectId,refreshFlag);
+    if (refreshFlag) clearIssueCache();
+    getIssues(projectId);
 
     ArrayList<Issue> issueList = new ArrayList<Issue>();
     for (Issue issue : issueMap.values())
@@ -1098,7 +1128,7 @@ public class Redmine
       Issue issue = issueMap.get(issueId);
       if (issue == null)
       {
-        getIssues(ID_ANY,false);
+        getIssues(ID_ANY);
         issue = issueMap.get(issueId);
       }
 
@@ -1124,14 +1154,7 @@ public class Redmine
     SoftHashMap<Integer,TimeEntry> timeEntryMap = new SoftHashMap<Integer,TimeEntry>();
 
     // clear data if refresh is requested
-    if (refreshFlag)
-    {
-      for (int i = 0; i < timeEntries.size(); i++)
-      {
-        timeEntries.set(i,TIME_ENTRY_NULL);
-      }
-      lastTimeEntryDataUpdateTimeStamp = 0L;
-    }
+    if (refreshFlag) clearTimeEntryCache();
 
     // update number of time entries, start date
     updateTimeEntryData();
@@ -1192,7 +1215,7 @@ public class Redmine
     return getTimeEntries(projectId,issueId,userId,null);
   }
 
-  /** get total number of own time entries
+  /** get total number time entries
    * @param projectId project id or ID_ANY
    * @param issueId issue id or ID_ANY
    * @param userId user id or ID_ANY
@@ -1251,6 +1274,18 @@ public class Redmine
   /** get total number of own time entries
    * @param projectId project id or ID_ANY
    * @param issueId issue id or ID_ANY
+   * @param spentOn spent-on date or null
+   * @return total number of time entries
+   */
+  public int getTimeEntryCount(int projectId, int issueId, Date spentOn)
+    throws RedmineException
+  {
+    return getTimeEntryCount(projectId,issueId,ownUserId,spentOn);
+  }
+
+  /** get total number of own time entries
+   * @param projectId project id or ID_ANY
+   * @param issueId issue id or ID_ANY
    * @return total number of time entries
    */
   public int getTimeEntryCount(int projectId, int issueId)
@@ -1260,12 +1295,22 @@ public class Redmine
   }
 
   /** get total number of own time entries
+   * @param spentOn spent-on date or null
+   * @return total number of time entries
+   */
+  public int getTimeEntryCount(Date spentOn)
+    throws RedmineException
+  {
+    return getTimeEntryCount(ID_ANY,ID_ANY,spentOn);
+  }
+
+  /** get total number of own time entries
    * @return total number of time entries
    */
   public int getTimeEntryCount()
     throws RedmineException
   {
-    return getTimeEntryCount(ID_ANY,ID_ANY);
+    return getTimeEntryCount(null);
   }
 
   /** get total number of own time entries
@@ -1285,12 +1330,16 @@ public class Redmine
    * @param issueId issue id or ID_ANY
    * @param userId user id or ID_ANY
    * @param spentOn spent-on date or null
+   * @param refreshFlag true to refresh data
    * @return hours sum of time entries
    */
-  public synchronized double getTimeEntryHoursSum(int projectId, int issueId, int userId, Date spentOn)
+  public synchronized double getTimeEntryHoursSum(int projectId, int issueId, int userId, Date spentOn, boolean refreshFlag)
     throws RedmineException
   {
     double hoursSum = 0.0;
+
+    // clear data if refresh is requested
+    if (refreshFlag) clearTimeEntryCache();
 
     // update number of time entries, start date
     updateTimeEntryData();
@@ -1324,16 +1373,30 @@ public class Redmine
     return hoursSum;
   }
 
-  /** get hours sum of own time entries for today
+  /** get hours sum of time entries
    * @param projectId project id or ID_ANY
    * @param issueId issue id or ID_ANY
    * @param userId user id or ID_ANY
+   * @param spentOn spent-on date or null
    * @return hours sum of time entries
    */
-  public double getTimeEntryHoursSum(int projectId, int issueId, int userId)
+  public synchronized double getTimeEntryHoursSum(int projectId, int issueId, int userId, Date spentOn)
     throws RedmineException
   {
-    return getTimeEntryHoursSum(projectId,issueId,userId,new Date());
+    return getTimeEntryHoursSum(projectId,issueId,userId,spentOn,false);
+  }
+
+  /** get hours sum of own time entries
+   * @param projectId project id or ID_ANY
+   * @param issueId issue id or ID_ANY
+   * @param spentOn spent-on date or null
+   * @param refreshFlag true to refresh data
+   * @return hours sum of time entries
+   */
+  public double getTimeEntryHoursSum(int projectId, int issueId, Date spentOn, boolean refreshFlag)
+    throws RedmineException
+  {
+    return getTimeEntryHoursSum(projectId,issueId,ownUserId,spentOn,refreshFlag);
   }
 
   /** get hours sum of own time entries
@@ -1345,7 +1408,18 @@ public class Redmine
   public double getTimeEntryHoursSum(int projectId, int issueId, Date spentOn)
     throws RedmineException
   {
-    return getTimeEntryHoursSum(projectId,issueId,ownUserId,spentOn);
+    return getTimeEntryHoursSum(projectId,issueId,ownUserId,spentOn,false);
+  }
+
+  /** get hours sum of own time entries
+   * @param projectId project id or ID_ANY
+   * @param issueId issue id or ID_ANY
+   * @return hours sum of time entries
+   */
+  public double getTimeEntryHoursSum(int projectId, int issueId, boolean refreshFlag)
+    throws RedmineException
+  {
+    return getTimeEntryHoursSum(projectId,issueId,ownUserId,null,refreshFlag);
   }
 
   /** get hours sum of own time entries
@@ -1356,7 +1430,28 @@ public class Redmine
   public double getTimeEntryHoursSum(int projectId, int issueId)
     throws RedmineException
   {
-    return getTimeEntryHoursSum(projectId,issueId,ownUserId);
+    return getTimeEntryHoursSum(projectId,issueId,false);
+  }
+
+  /** get hours sum of own time entries
+   * @param spentOn spent-on date or null
+   * @param refreshFlag true to refresh data
+   * @return hours sum of time entries
+   */
+  public double getTimeEntryHoursSum(Date spentOn, boolean refreshFlag)
+    throws RedmineException
+  {
+    return getTimeEntryHoursSum(ID_ANY,ID_ANY,ownUserId,spentOn,refreshFlag);
+  }
+
+  /** get hours sum of own time entries
+   * @param spentOn spent-on date or null
+   * @return hours sum of time entries
+   */
+  public double getTimeEntryHoursSum(Date spentOn)
+    throws RedmineException
+  {
+    return getTimeEntryHoursSum(spentOn,false);
   }
 
   /** get Redmine time entries as an array
@@ -1450,6 +1545,27 @@ public class Redmine
     throws RedmineException
   {
     return getTimeEntryArray(projectId,issueId,ownUserId,new Date(),refreshFlag);
+  }
+
+  /** get own Redmine time entries as an array
+   * @param spentOn spent-on date or null
+   * @param refreshFlag true to refresh data
+   * @return time entry array
+   */
+  public TimeEntry[] getTimeEntryArray(Date spentOn, boolean refreshFlag)
+    throws RedmineException
+  {
+    return getTimeEntryArray(ID_ANY,ID_ANY,spentOn,refreshFlag);
+  }
+
+  /** get own Redmine time entries as an array
+   * @param spentOn spent-on date or null
+   * @return time entry array
+   */
+  public TimeEntry[] getTimeEntryArray(Date spentOn)
+    throws RedmineException
+  {
+    return getTimeEntryArray(ID_ANY,ID_ANY,spentOn);
   }
 
   /** get own Redmine time entries of today as an array
@@ -1573,6 +1689,7 @@ Dprintf.dprintf("index=%s",index);
         rootElement.appendChild(element);
       }
     });
+    clearTimeEntryCache();
   }
 
   /** update time entry
@@ -1608,6 +1725,7 @@ Dprintf.dprintf("index=%s",index);
         rootElement.appendChild(element);
       }
     });
+    clearTimeEntryCache();
   }
 
   /** delete time entry
@@ -1617,6 +1735,7 @@ Dprintf.dprintf("index=%s",index);
     throws RedmineException
   {
     deleteData("/time_entries/"+timeEntry.id);
+    clearTimeEntryCache();
   }
 
   /** convert house/minutes fraction into duration
@@ -1627,6 +1746,76 @@ Dprintf.dprintf("index=%s",index);
   public static double toHours(int hourFraction, int minuteFraction)
   {
     return (double)hourFraction+(double)minuteFraction/60.0;
+  }
+
+  //-----------------------------------------------------------------------
+
+  /** clear user cache
+   */
+  private void clearUserCache()
+  {
+    userMap.clear();
+    userMapUpdateTimeStamp = 0L;
+  }
+
+  /** clear tracker cache
+   */
+  private void clearTrackerCache()
+  {
+    trackerMap.clear();
+    trackerMapUpdateTimeStamp = 0L;
+  }
+
+  /** clear status cache
+   */
+  private void clearStatusCache()
+  {
+    statusMap.clear();
+    statusMapUpdateTimeStamp = 0L;
+  }
+
+  /** clear priority cache
+   */
+  private void clearPriorityCache()
+  {
+    priorityMap.clear();
+    priorityMapUpdateTimeStamp = 0L;
+  }
+
+  /** clear activity cache
+   */
+  private void clearActivityCache()
+  {
+    activityMap.clear();
+    activityMapUpdateTimeStamp = 0L;
+  }
+
+  /** clear project cache
+   */
+  private void clearProjectCache()
+  {
+    projectMap.clear();
+    projectMapUpdateTimeStamp = 0L;
+  }
+
+  /** clear issue cache
+   */
+  private void clearIssueCache()
+  {
+    issueMap.clear();
+    issueMapUpdateTimeStamp = 0L;
+    issueMapProjectId = ID_NONE;
+  }
+
+  /** clear time entry cache
+   */
+  private void clearTimeEntryCache()
+  {
+    for (int i = 0; i < timeEntries.size(); i++)
+    {
+      timeEntries.set(i,TIME_ENTRY_NULL);
+    }
+    timeEntriesUpdateTimeStamp = 0L;
   }
 
   //-----------------------------------------------------------------------
@@ -2345,6 +2534,8 @@ Dprintf.dprintf("");
     return parseDate(getAttribute(element,tagName,attributeName));
   }
 
+  //-----------------------------------------------------------------------
+
   /** parse date
    * @param string date/time string
    * @return date/time or current date/time
@@ -2414,7 +2605,7 @@ Dprintf.dprintf("");
   private void updateTimeEntryData()
     throws RedmineException
   {
-    if (System.currentTimeMillis() > (lastTimeEntryDataUpdateTimeStamp+Settings.cacheExpireTime*1000))
+    if (System.currentTimeMillis() > (timeEntriesUpdateTimeStamp+Settings.cacheExpireTime*1000))
     {
       // get total number of time entries
       int timeEntryCount = getDataLength("/time_entries","time_entry");
@@ -2434,7 +2625,7 @@ Dprintf.dprintf("");
         }
       });
 
-      lastTimeEntryDataUpdateTimeStamp = System.currentTimeMillis();
+      timeEntriesUpdateTimeStamp = System.currentTimeMillis();
     }
   }
 
