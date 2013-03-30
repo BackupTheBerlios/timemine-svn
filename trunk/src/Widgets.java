@@ -1793,6 +1793,32 @@ widget.setSelection(new Point(0,1));
     setCursor(control,null);
   }
 
+  /** check if widget is child of composite
+   * @param composite composite
+   * @param widget widget to check
+   * @return true iff widget is child of composite
+   */
+  public static boolean isChildOf(Composite composite, Widget widget)
+  {
+    if (widget instanceof Control)
+    {
+      Control control = (Control)widget;
+      while (   (control != null)
+             && (composite != control)
+             && (composite != control.getParent())
+            )
+      {
+        control = control.getParent();
+      }
+
+      return (control != null);
+    }
+    else
+    {
+      return false;
+    }
+  }
+
   /** set field in data structure
    * @param data data structure
    * @param field field name
