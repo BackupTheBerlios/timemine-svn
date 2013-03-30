@@ -779,60 +779,6 @@ exception.printStackTrace();
     // create tabs
     widgetTabFolder = Widgets.newTabFolder(shell);
     Widgets.layout(widgetTabFolder,0,0,TableLayoutData.NSWE);
-    widgetTabFolder.addMouseListener(new MouseListener()
-    {
-      public void mouseDoubleClick(MouseEvent mouseEvent)
-      {
-        TabFolder tabFolder = (TabFolder)mouseEvent.widget;
-
-        /* Note: it is not possible to add a mouse-double-click handler to
-          a tab-item nor a tab-folder and the correct tab-item is returned
-          when the tab-items a scrolled. Thus use the following work-around:
-            - get offset of first item = width of scroll buttons left and right
-            - check mouse position with offset
-            - currently selected tab-item is item with mouse-click
-        */
-        TabItem[] tabItems    = tabFolder.getItems();
-        int scrollButtonWidth = (tabItems != null)?tabItems[0].getBounds().x:0;
-        Rectangle bounds      = tabFolder.getBounds();
-        if ((mouseEvent.x > bounds.x+scrollButtonWidth) && (mouseEvent.x < bounds.x+bounds.width-scrollButtonWidth))
-        {
-          TabItem[] selectedTabItems = tabFolder.getSelection();
-          TabItem   tabItem          = ((selectedTabItems != null) && (selectedTabItems.length > 0))?selectedTabItems[0]:null;
-
-          if (tabItem != null)
-          {
-//            RepositoryTab repositoryTab = (RepositoryTab)selectedTabItems[0].getData();
-//            if (editRepository(repositoryTab))
-//            {
-//              repositoryTab.updateStates();
-//            }
-          }
-        }
-      }
-
-      public void mouseDown(final MouseEvent mouseEvent)
-      {
-      }
-
-      public void mouseUp(final MouseEvent mouseEvent)
-      {
-      }
-    });
-    widgetTabFolder.addSelectionListener(new SelectionListener()
-    {
-      public void widgetDefaultSelected(SelectionEvent selectionEvent)
-      {
-      }
-      public void widgetSelected(SelectionEvent selectionEvent)
-      {
-        TabFolder tabFolder = (TabFolder)selectionEvent.widget;
-        TabItem   tabItem   = (TabItem)selectionEvent.item;
-
-//        selectRepositoryTab((RepositoryTab)tabItem.getData());
-      }
-    });
-//    widgetTabFolder.setToolTipText("Repository tab.\nDouble-click to edit settings of repository.");
 
     widgetTabToday = Widgets.addTab(widgetTabFolder,"Today ("+Widgets.acceleratorToText(SWT.F5)+")");
     widgetTabToday.setLayout(new TableLayout(new double[]{1.0,0.0,0.0},1.0,2));
@@ -952,9 +898,8 @@ exception.printStackTrace();
                   for (TableItem tableItem : tableItems)
                   {
                     Redmine.TimeEntry timeEntry = (Redmine.TimeEntry)tableItem.getData();
-
-                    redmine.delete(timeEntry);
-                    Widgets.removeTableEntry(widget,timeEntry);
+                    deleteTimeEntry(timeEntry);
+                    removeTableItem(widgetTodayTimeEntryTable,timeEntry);
                   }
                 }
                 catch (RedmineException exception)
@@ -1282,23 +1227,16 @@ exception.printStackTrace();
           {
             redmine.add(timeEntry);
 
-// TODO update tree view?
-            Redmine.Activity activity = redmine.getActivity(timeEntry.activityId);
-            Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
-            Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
-            TableItem tableItem = Widgets.addTableEntry(widgetTodayTimeEntryTable,
-                                                        timeEntry,
-                                                        formatHours(timeEntry.hours),
-                                                        (activity != null) ? activity.name : "",
-                                                        (project != null) ? project.name : "",
-                                                        (issue != null) ? issue.subject : "",
-                                                        timeEntry.comments
-                                                       );
+            // add today time entry table entry
+            TableItem tableItem = addTableItem(widgetTodayTimeEntryTable,timeEntry);
             widgetTodayTimeEntryTable.setSelection(tableItem);
+
+            // refresh tree item
+            refreshTreeItem(widgetTimeEntryTree,timeEntry.spentOn);
           }
           catch (RedmineException exception)
           {
-            Dialogs.error(shell,"Cannot add time entry (error: "+exception.getMessage()+")");
+            Dialogs.error(shell,"Cannot add new time entry (error: "+exception.getMessage()+")");
           }
         }
       });
@@ -1348,14 +1286,21 @@ exception.printStackTrace();
       // set next focus
       Widgets.setNextFocus(widgetProjects,widgetIssues,widgetSpentHourFraction,widgetSpentMinuteFraction,widgetActivities,widgetComments,widgetAddNew);
     }
+    widgetTabToday.addListener(SWT.Show,new Listener()
+    {
+      public void handleEvent(Event event)
+      {
+        Widgets.setFocus(widgetTodayTimeEntryTable);
+      }
+    });
 
     widgetTabAll = Widgets.addTab(widgetTabFolder,"All ("+Widgets.acceleratorToText(SWT.F6)+")");
-    widgetTabAll.setLayout(new TableLayout(new double[]{1.0,0.0,0.0},1.0,2));
+    widgetTabAll.setLayout(new TableLayout(new double[]{1.0,0.0},1.0,2));
     Widgets.layout(widgetTabAll,0,0,TableLayoutData.NSWE);
     {
       // today time entry list
       widgetTimeEntryTree = Widgets.newTree(widgetTabAll,SWT.VIRTUAL|SWT.MULTI);
-      widgetTimeEntryTree.setLayout(new TableLayout(null,new double[]{1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0}));
+      widgetTimeEntryTree.setLayout(new TableLayout(1.0,1.0));
       Widgets.layout(widgetTimeEntryTree,0,0,TableLayoutData.NSWE);
       Widgets.addTreeColumn(widgetTimeEntryTree,"Spent on",SWT.LEFT,  80,true);
       Widgets.addTreeColumn(widgetTimeEntryTree,"Hours",   SWT.RIGHT, 50,true);
@@ -1380,9 +1325,7 @@ exception.printStackTrace();
 
           try
           {
-            setTreeEntries(treeItem,
-                           redmine.getTimeEntryArray(Redmine.ID_ANY,Redmine.ID_ANY,date)
-                          );
+            setTreeEntries(treeItem,redmine.getTimeEntryArray(date));
           }
           catch (RedmineException exception)
           {
@@ -1400,18 +1343,16 @@ exception.printStackTrace();
 
           try
           {
-
             int index = tree.indexOf(treeItem);
-//            int count = redmine.getTimeEntryCount();
 //Dprintf.dprintf("update treeItem=%s index=%d",treeItem,index);
-            if (index >= 0) // && (index < redmine.getTimeEntryCount()))
+            if (index >= 0)
             {
               Calendar calendar = Calendar.getInstance();
               calendar.add(Calendar.DAY_OF_MONTH,-index);
               Date     date      = calendar.getTime();
               int      dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
 
-              double hoursSum = redmine.getTimeEntryHoursSum(Redmine.ID_ANY,Redmine.ID_ANY,date);
+              double hoursSum = redmine.getTimeEntryHoursSum(date);
 
               treeItem.setData(date);
               treeItem.setText(0,DATE_FORMAT.format(date));
@@ -1433,9 +1374,7 @@ exception.printStackTrace();
               }
               if (treeItem.getExpanded())
               {
-                setTreeEntries(treeItem,
-                               redmine.getTimeEntryArray(Redmine.ID_ANY,Redmine.ID_ANY,date)
-                              );
+                setTreeEntries(treeItem,redmine.getTimeEntryArray(date));
               }
               else
               {
@@ -1536,11 +1475,11 @@ exception.printStackTrace();
       {
         public void keyPressed(KeyEvent keyEvent)
         {
-          Tree       widget     = (Tree)keyEvent.widget;
-          TreeItem[] treeItems = widget.getSelection();
+          Tree widget = (Tree)keyEvent.widget;
 
           if      (Widgets.isAccelerator(keyEvent,SWT.SPACE))
           {
+            TreeItem[] treeItems = widget.getSelection();
             if (treeItems.length > 0)
             {
               Event treeEvent = new Event();
@@ -1560,6 +1499,7 @@ exception.printStackTrace();
                    || Widgets.isAccelerator(keyEvent,SWT.KEYPAD_CR)
                   )
           {
+            TreeItem[] treeItems = widget.getSelection();
             if (treeItems.length > 0)
             {
               if (treeItems[0].getData() instanceof Redmine.TimeEntry)
@@ -1614,6 +1554,8 @@ exception.printStackTrace();
           {
             // get date of selected day or date of today
             Date date;
+
+            TreeItem[] treeItems = widgetTimeEntryTree.getSelection();
             if (treeItems.length > 0)
             {
               TreeItem treeItem = treeItems[0];
@@ -1628,38 +1570,15 @@ exception.printStackTrace();
               date = new Date();
             }
 
-            // create new time entry
-            Redmine.TimeEntry timeEntry = redmine.new TimeEntry(Redmine.ID_NONE,
-                                                                Redmine.ID_NONE,
-                                                                redmine.getDefaultActivityId(),
-                                                                (double)Settings.minTimeDelta/60.0,
-                                                                "",
-                                                                date
-                                                               );
-
-            if (editTimeEntry(timeEntry,"Add time entry","Add"))
+            try
             {
-Dprintf.dprintf("");
-              try
-              {
-                redmine.add(timeEntry);
-
-                // refresh tree items
-                refreshTreeItem(widget,timeEntry.spentOn);
-
-                // add today time entry table entry
-                if (isToday(timeEntry.spentOn))
-                {
-                  TableItem tableItem = addTableItem(widgetTodayTimeEntryTable,timeEntry);
-                  widgetTodayTimeEntryTable.setSelection(tableItem);
-                }
-
-              }
-              catch (RedmineException exception)
-              {
-                Dialogs.error(shell,"Cannot add time entry (error: "+exception.getMessage()+")");
-              }
-
+              // add new time entry
+              addTimeEntry(date);
+            }
+            catch (RedmineException exception)
+            {
+              Dialogs.error(shell,"Cannot add new time entry (error: "+exception.getMessage()+")");
+              return;
             }
           }
           else if (   Widgets.isAccelerator(keyEvent,Settings.keyDeleteTimeEntry)
@@ -1667,6 +1586,7 @@ Dprintf.dprintf("");
                    || Widgets.isAccelerator(keyEvent,SWT.BS)
                   )
           {
+            TreeItem[] treeItems = widget.getSelection();
             if (treeItems.length > 0)
             {
               if (Dialogs.confirm(shell,"Delete "+treeItems.length+" time entries?"))
@@ -1676,21 +1596,13 @@ Dprintf.dprintf("");
                   for (TreeItem treeItem : treeItems)
                   {
                     Redmine.TimeEntry timeEntry = (Redmine.TimeEntry)treeItem.getData();
-
-                    redmine.delete(timeEntry);
-
-                    TreeItem parentTreeItem = treeItem.getParentItem();
-                    treeItem.dispose();
-                    if (parentTreeItem.getItemCount() <= 0)
-                    {
-                      parentTreeItem.setExpanded(false);
-                      new TreeItem(parentTreeItem,SWT.NONE);
-                    }
+                    deleteTimeEntry(timeEntry);
+                    removeTreeItem(widgetTimeEntryTree,timeEntry);
                   }
                 }
                 catch (RedmineException exception)
                 {
-                  Dialogs.error(shell,"Cannot delete data from Redmine server (error: "+exception.getMessage()+")");
+                  Dialogs.error(shell,"Cannot delete time entries (error: "+exception.getMessage()+")");
                   return;
                 }
               }
@@ -1702,16 +1614,123 @@ Dprintf.dprintf("");
         }
       });
       widgetTimeEntryTree.setToolTipText("All time entries of user.\nENTER/RETURN to open/edit entry.\nDEL/BACKSPACE to delete entries.");
-    }
 
-/*
-    // create buttons
-    composite = Widgets.newComposite(shell);
-    composite.setLayout(new TableLayout(0.0,1.0,2));
-    Widgets.layout(composite,1,0,TableLayoutData.WE);
-    {
+      composite = Widgets.newComposite(widgetTabAll);
+      composite.setLayout(new TableLayout(0.0,0.0));
+      Widgets.layout(composite,1,0,TableLayoutData.E);
+      {
+        button = Widgets.newButton(composite,"Add",Settings.keyNewTimeEntry);
+        Widgets.layout(button,0,0,TableLayoutData.E,0,0,0,0,80,SWT.DEFAULT);
+        button.addSelectionListener(new SelectionListener()
+        {
+          public void widgetDefaultSelected(SelectionEvent selectionEvent)
+          {
+          }
+          public void widgetSelected(SelectionEvent selectionEvent)
+          {
+            // get date of selected day or date of today
+            Date date;
+
+            TreeItem[] treeItems = widgetTimeEntryTree.getSelection();
+            if (treeItems.length > 0)
+            {
+              TreeItem treeItem = treeItems[0];
+              while (!(treeItem.getData() instanceof Date))
+              {
+                treeItem = treeItem.getParentItem();
+              }
+              date = (Date)(((Date)treeItem.getData()).clone());
+            }
+            else
+            {
+              date = new Date();
+            }
+
+            try
+            {
+              // add new time entry
+              addTimeEntry(date);
+            }
+            catch (RedmineException exception)
+            {
+              Dialogs.error(shell,"Cannot add new time entry (error: "+exception.getMessage()+")");
+              return;
+            }
+          }
+        });
+
+        button = Widgets.newButton(composite,"Remove",Settings.keyDeleteTimeEntry);
+        Widgets.layout(button,0,1,TableLayoutData.E,0,0,0,0,80,SWT.DEFAULT);
+        button.addSelectionListener(new SelectionListener()
+        {
+          public void widgetDefaultSelected(SelectionEvent selectionEvent)
+          {
+          }
+          public void widgetSelected(SelectionEvent selectionEvent)
+          {
+Dprintf.dprintf("");
+            TreeItem[] treeItems = widgetTimeEntryTree.getSelection();
+            if (treeItems.length > 0)
+            {
+              // get time entries to delete
+              ArrayList<Redmine.TimeEntry> timeEntryList = new ArrayList<Redmine.TimeEntry>();
+              try
+              {
+                for (TreeItem treeItem : treeItems)
+                {
+                  if       (treeItem.getData() instanceof Date)
+                  {
+                    for (Redmine.TimeEntry timeEntry : redmine.getTimeEntryArray((Date)treeItem.getData()))
+                    {
+                      timeEntryList.add(timeEntry);
+                    }
+                  }
+                  else if  (treeItem.getData() instanceof Redmine.TimeEntry)
+                  {
+                    timeEntryList.add((Redmine.TimeEntry)treeItem.getData());
+                  }
+                }
+              }
+              catch (RedmineException exception)
+              {
+                Dialogs.error(shell,"Cannot get time entries to delete (error: "+exception.getMessage()+")");
+                return;
+              }
+
+              if (   (timeEntryList.size() > 0)
+                  && Dialogs.confirm(shell,"Delete "+timeEntryList.size()+" time entries?")
+                 )
+              {
+                try
+                {
+                  for (Redmine.TimeEntry timeEntry : timeEntryList)
+                  {
+                    deleteTimeEntry(timeEntry);
+                    removeTableItem(widgetTodayTimeEntryTable,timeEntry);
+                    removeTreeItem(widgetTimeEntryTree,timeEntry);
+                  }
+                }
+                catch (RedmineException exception)
+                {
+                  Dialogs.error(shell,"Cannot delete time entries (error: "+exception.getMessage()+")");
+                  return;
+                }
+              }
+            }
+          }
+        });
+      }
     }
-*/
+    widgetTabAll.addListener(SWT.Show,new Listener()
+    {
+      public void handleEvent(Event event)
+      {
+        Widgets.setFocus(widgetTimeEntryTree);
+      }
+    });
+
+    Widgets.showTab(widgetTabFolder,widgetTabToday);
+    Widgets.setFocus(widgetTodayTimeEntryTable);
   }
 
   /** create menu
@@ -2023,7 +2042,7 @@ Dprintf.dprintf("");
         try
         {
           // get today time entries, number ot time entries
-          final Redmine.TimeEntry[] todayTimeEntries = redmine.getTimeEntryArray(Redmine.ID_ANY,Redmine.ID_ANY,new Date(),true);
+          final Redmine.TimeEntry[] todayTimeEntries = redmine.getTimeEntryArray(new Date(),true);
           final int                 timeEntryDays    = (int)((System.currentTimeMillis()-redmine.getTimeEntryStartDate().getTime())/(24*60*60*1000));
 
           // refreh today time entry table
@@ -2336,6 +2355,35 @@ Dprintf.dprintf("");
            && (calendar.get(Calendar.DATE ) == todayCalendar.get(Calendar.DATE ));
   }
 
+  /** add time entry to table
+   * @param table table widget
+   * @param timeEntry time entry to add
+   */
+  private TableItem addTableItem(Table table, Redmine.TimeEntry timeEntry)
+  {
+    Redmine.Activity activity = redmine.getActivity(timeEntry.activityId);
+    Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
+    Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
+
+    return Widgets.addTableEntry(widgetTodayTimeEntryTable,
+                                 timeEntry,
+                                 formatHours(timeEntry.hours),
+                                 (activity != null) ? activity.name : "",
+                                 (project != null) ? project.name : "",
+                                 (issue != null) ? issue.subject : "",
+                                 timeEntry.comments
+                                );
+  }
+
+  /** remove time entry from table
+   * @param table table widget
+   * @param timeEntry time entry to remove
+   */
+  private void removeTableItem(Table table, Redmine.TimeEntry timeEntry)
+  {
+    Widgets.removeTableEntry(widgetTodayTimeEntryTable,timeEntry);
+  }
+
   /** set sub-tree time entries
    * @param treeItem parent tree item
    * @param timeEntries time entries to set
@@ -2376,53 +2424,14 @@ Dprintf.dprintf("");
     treeItem.setExpanded(false);
   }
 
-  /** add time entry to table
-   * @param table table widget
-   * @param timeEntry time entry to add
-   */
-  private TableItem addTableItem(Table table, Redmine.TimeEntry timeEntry)
-  {
-    Redmine.Activity activity = redmine.getActivity(timeEntry.activityId);
-    Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
-    Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
-
-    return Widgets.addTableEntry(widgetTodayTimeEntryTable,
-                                 timeEntry,
-                                 formatHours(timeEntry.hours),
-                                 (activity != null) ? activity.name : "",
-                                 (project != null) ? project.name : "",
-                                 (issue != null) ? issue.subject : "",
-                                 timeEntry.comments
-                                );
-  }
-
-  /** remove time entry from table
-   * @param table table widget
+  /** remove time entry and collaps sub-tree if needed
+   * @param tree tree
    * @param timeEntry time entry to remove
+   * @return
    */
-  private void removeTableItem(Table table, Redmine.TimeEntry timeEntry)
+  private void removeTreeItem(Tree tree, Redmine.TimeEntry timeEntry)
   {
-    Widgets.removeTableEntry(widgetTodayTimeEntryTable,timeEntry);
-  }
-
-  /** refresh time entry in table
-   * @param table table widget
-   * @param timeEntry time entry to refresh
-   */
-  private void refreshTableItem(Table table, Redmine.TimeEntry timeEntry)
-  {
-    Redmine.Activity activity = redmine.getActivity(timeEntry.activityId);
-    Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
-    Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
-
-    Widgets.updateTableEntry(widgetTodayTimeEntryTable,
-                             timeEntry,
-                             formatHours(timeEntry.hours),
-                             (activity != null) ? activity.name : "",
-                             (project != null) ? project.name : "",
-                             (issue != null) ? issue.subject : "",
-                             timeEntry.comments
-                            );
+    Widgets.removeTreeEntry(tree,timeEntry);
   }
 
   /** refresh time entry in tree
@@ -2452,6 +2461,26 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
         }
       }
     }
+  }
+
+  /** refresh time entry in table
+   * @param table table widget
+   * @param timeEntry time entry to refresh
+   */
+  private void refreshTableItem(Table table, Redmine.TimeEntry timeEntry)
+  {
+    Redmine.Activity activity = redmine.getActivity(timeEntry.activityId);
+    Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
+    Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
+
+    Widgets.updateTableEntry(widgetTodayTimeEntryTable,
+                             timeEntry,
+                             formatHours(timeEntry.hours),
+                             (activity != null) ? activity.name : "",
+                             (project != null) ? project.name : "",
+                             (issue != null) ? issue.subject : "",
+                             timeEntry.comments
+                            );
   }
 
   /** edit time entry
@@ -2915,6 +2944,47 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
     return result;
   }
 
+  /** add new time entry
+   * @param date date
+   */
+  private void addTimeEntry(Date date)
+    throws RedmineException
+  {
+    // create new time entry
+    Redmine.TimeEntry timeEntry = redmine.new TimeEntry(Redmine.ID_NONE,
+                                                        Redmine.ID_NONE,
+                                                        redmine.getDefaultActivityId(),
+                                                        (double)Settings.minTimeDelta/60.0,
+                                                        "",
+                                                        date
+                                                       );
+
+    if (editTimeEntry(timeEntry,"Add time entry","Add"))
+    {
+      redmine.add(timeEntry);
+
+      // refresh tree item
+      refreshTreeItem(widgetTimeEntryTree,timeEntry.spentOn);
+
+      // add today time entry table entry
+      if (isToday(timeEntry.spentOn))
+      {
+        TableItem tableItem = addTableItem(widgetTodayTimeEntryTable,timeEntry);
+        widgetTodayTimeEntryTable.setSelection(tableItem);
+      }
+    }
+  }
+
+  /** add new time entry
+   * @param date date
+   */
+  private void deleteTimeEntry(Redmine.TimeEntry timeEntry)
+    throws RedmineException
+  {
+ Dprintf.dprintf("");
+    redmine.delete(timeEntry);
+  }
+
   /** edit preferences
    */
   private void editPreferences()
@@ -3071,6 +3141,7 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
         subComposite.setLayout(new TableLayout(0.0,0.0));
         Widgets.layout(subComposite,11,1,TableLayoutData.WE);
         {
+//TODO cache expire time
         }
       }
     }
