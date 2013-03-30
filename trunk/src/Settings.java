@@ -34,7 +34,6 @@ import java.util.LinkedHashSet;
 import java.util.regex.Pattern;
 
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.graphics.FontData;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.RGB;
 
@@ -405,36 +404,6 @@ public class Settings
     }
   }
 
-  /** config value adapter String <-> font data
-   */
-  class SettingValueAdapterFontData extends SettingValueAdapter<String,FontData>
-  {
-    /** convert to value
-     * @param string string
-     * @return value
-     */
-    public FontData toValue(String string) throws Exception
-    {
-      return Widgets.textToFontData(string);
-    }
-
-    public String toString(FontData fontData) throws Exception
-    {
-      String string;
-
-      if (fontData != null)
-      {
-        string = Widgets.fontDataToText(fontData);
-      }
-      else
-      {
-        string = "";
-      }
-
-      return string;
-    }
-  }
-
   // --------------------------- constants --------------------------------
   public static final String TIMEMINE_DIRECTORY = System.getProperty("user.home")+File.separator+".timemine";
 
@@ -492,12 +461,6 @@ public class Settings
   public static Color                    colorTimeEntriesIncomplete             = new Color(null,new RGB(255,128,128));
   @SettingValue(type=SettingValueAdapterColor.class)
   public static Color                    colorTimeEntriesWeekend                = new Color(new RGB(192,192,192),null);
-
-  @SettingComment(text={"","Fonts: <name>,<height>,normal|bold|italic|bold italic"})
-  @SettingValue(type=SettingValueAdapterFontData.class)
-  public static FontData                 fontText                               = null;
-  @SettingValue(type=SettingValueAdapterFontData.class)
-  public static FontData                 fontList                               = null;
 
   @SettingComment(text={"","Accelerator keys"})
   @SettingValue(type=SettingValueAdapterKey.class)
