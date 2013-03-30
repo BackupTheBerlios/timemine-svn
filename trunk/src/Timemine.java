@@ -1372,7 +1372,7 @@ Dprintf.dprintf("");
       });
 
       // set next focus
-      Widgets.setNextFocus(widgetProjects,widgetIssues,widgetSpentMinuteFraction,widgetSpentMinuteFraction,widgetActivities,widgetComments,widgetAddNew);
+      Widgets.setNextFocus(widgetProjects,widgetIssues,widgetSpentHourFraction,widgetSpentMinuteFraction,widgetActivities,widgetComments,widgetAddNew);
     }
 
     widgetTabAll = Widgets.addTab(widgetTabFolder,"All ("+Widgets.acceleratorToText(SWT.F6)+")");
@@ -1481,12 +1481,14 @@ Dprintf.dprintf("");
       {
         public void mouseDoubleClick(MouseEvent mouseEvent)
         {
-          Tree       widget     = (Tree)mouseEvent.widget;
-          TreeItem[] treeItems = widget.getSelection();
+          Tree widget = (Tree)mouseEvent.widget;
 
-          if (treeItems.length > 0)
+          // get tree item at mouse position (Note: use first column which is required on Windows)
+          TreeItem treeItem = widget.getItem(new Point(widget.getColumns()[0].getWidth()/2,mouseEvent.y));
+
+          if (treeItem != null)
           {
-            if      (treeItems[0].getData() instanceof Date)
+            if      (treeItem.getData() instanceof Date)
             {
               /* On Linux a double-click does not open the entry by default. Send a
                  event to initiate this behavior on Linux.
@@ -1494,8 +1496,8 @@ Dprintf.dprintf("");
               if (System.getProperty("os.name").toLowerCase().matches("linux"))
               {
                 Event treeEvent = new Event();
-                treeEvent.item = treeItems[0];
-                if (treeItems[0].getExpanded())
+                treeEvent.item = treeItem;
+                if (treeItem.getExpanded())
                 {
                   widget.notifyListeners(SWT.Collapse,treeEvent);
                 }
@@ -1505,9 +1507,9 @@ Dprintf.dprintf("");
                 }
               }
             }
-            else if (treeItems[0].getData() instanceof Redmine.TimeEntry)
+            else if (treeItem.getData() instanceof Redmine.TimeEntry)
             {
-              Redmine.TimeEntry timeEntry = (Redmine.TimeEntry)treeItems[0].getData();
+              Redmine.TimeEntry timeEntry = (Redmine.TimeEntry)treeItem.getData();
 
               Calendar prevSpentOnCalendar = Calendar.getInstance(); prevSpentOnCalendar.setTime(timeEntry.spentOn);
               if (editTimeEntry(timeEntry))
@@ -1525,11 +1527,11 @@ Dprintf.dprintf("");
                   Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
 
                   // refresh tree items
-                  for (TreeItem treeItem : widgetTimeEntryTree.getItems())
+                  for (TreeItem refreshTreeItem : widgetTimeEntryTree.getItems())
                   {
-                    if      (treeItem.getData() instanceof Date)
+                    if      (refreshTreeItem.getData() instanceof Date)
                     {
-                      Calendar calendar = Calendar.getInstance(); calendar.setTime((Date)treeItem.getData());
+                      Calendar calendar = Calendar.getInstance(); calendar.setTime((Date)refreshTreeItem.getData());
 
                       if (   (   (prevSpentOnCalendar.get(Calendar.YEAR ) == calendar.get(Calendar.YEAR ))
                               && (prevSpentOnCalendar.get(Calendar.MONTH) == calendar.get(Calendar.MONTH))
@@ -1542,7 +1544,7 @@ Dprintf.dprintf("");
                          )
                       {
                         Event treeEvent = new Event();
-                        treeEvent.item = treeItem;
+                        treeEvent.item = refreshTreeItem;
                         widget.notifyListeners(SWT.SetData,treeEvent);
                       }
                     }
@@ -2331,6 +2333,8 @@ else { Dprintf.dprintf(""); }
   private void setTreeEntries(TreeItem treeItem, Redmine.TimeEntry[] timeEntries)
     throws RedmineException
   {
+    final String EMPTY = StringUtils.repeat(' ',255);
+
     treeItem.removeAll();
     for (Redmine.TimeEntry timeEntry : timeEntries)
     {
@@ -2340,6 +2344,7 @@ else { Dprintf.dprintf(""); }
 
       TreeItem subTreeItem = new TreeItem(treeItem,SWT.NONE);
       subTreeItem.setData(timeEntry);
+      subTreeItem.setText(0,EMPTY);
       subTreeItem.setText(1,formatHours(timeEntry.hours));
       subTreeItem.setText(2,(activity != null) ? activity.name : "");
       subTreeItem.setText(3,(project != null) ? project.name : "");
