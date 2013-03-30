@@ -413,6 +413,23 @@ public class Redmine
           );
     }
 
+    /** create time entry
+     * @param projectId project id
+     * @param issueId issue id
+     * @param activityId activity id
+     * @param hourse spent hours
+     * @param comments comments
+     */
+    TimeEntry()
+    {
+      this(ID_NONE,
+           ID_NONE,
+           ID_NONE,
+           Settings.minTimeDelta,
+           ""
+          );
+    }
+
     /** get spent hours fraction
      * @return hours fraction
      */
