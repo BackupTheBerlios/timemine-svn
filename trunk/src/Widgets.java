@@ -1628,6 +1628,9 @@ widget.setSelection(new Point(0,1));
         String     text   = widget.getText();
         widget.setSelection(text.length(),text.length());
       }
+      else if (control instanceof Table)
+      {
+      }
       else if (control instanceof Tree)
       {
       }
@@ -1681,6 +1684,10 @@ widget.setSelection(new Point(0,1));
         else if (controls[i] instanceof StyledText)
         {
           ((StyledText)controls[i]).addSelectionListener(selectionListener);
+        }
+        else if (controls[i] instanceof Table)
+        {
+          ((Table)controls[i]).addSelectionListener(selectionListener);
         }
         else if (controls[i] instanceof Tree)
         {
