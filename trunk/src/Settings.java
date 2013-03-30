@@ -505,17 +505,13 @@ public class Settings
   @SettingValue(type=SettingValueAdapterKey.class)
   public static int                      keyTabTimeEntries                      = SWT.F6;
   @SettingValue(type=SettingValueAdapterKey.class)
-  public static int                      keySelectProject                       = SWT.CTRL+'P';
-  @SettingValue(type=SettingValueAdapterKey.class)
-  public static int                      keySelectIssue                         = SWT.CTRL+'I';
-  @SettingValue(type=SettingValueAdapterKey.class)
-  public static int                      keySelectSpentHours                    = SWT.CTRL+'S';
+  public static int                      keyNewTimeEntry                        = SWT.NONE;
   @SettingValue(type=SettingValueAdapterKey.class)
   public static int                      keyEditTimeEntry                       = SWT.NONE;
   @SettingValue(type=SettingValueAdapterKey.class)
-  public static int                      keyNewTimeEntry                        = SWT.INSERT;
-  @SettingValue(type=SettingValueAdapterKey.class)
   public static int                      keySaveTimeEntry                       = SWT.CTRL+'S';
+  @SettingValue(type=SettingValueAdapterKey.class)
+  public static int                      keyDeleteTimeEntry                     = SWT.NONE;
 
   @SettingValue(type=SettingValueAdapterKey.class)
   public static int                      keyPreferences                         = SWT.CTRL+'R';
