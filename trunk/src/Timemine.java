@@ -384,9 +384,11 @@ public class Timemine
   private Spinner                                widgetSpentMinuteFraction;
   private Combo                                  widgetActivities;
   private Text                                   widgetComments;
-  private Button                                 widgetAddNew;
+  private Button                                 widgetAdd;
 
   private Tree                                   widgetTimeEntryTree;
+  private Button                                 widgetNew;
+  private Button                                 widgetDelete;
 
   private Redmine                                redmine;
   private SoftHashMap<Integer,Redmine.TimeEntry> redmineTodayTimeEntryMap;
@@ -749,6 +751,8 @@ exception.printStackTrace();
     Combo       combo;
     Spinner     spinner;
     Text        text;
+    Menu        menu;
+    MenuItem    menuItem;
 
     // create window
     shell = new Shell(display,SWT.SHELL_TRIM);
@@ -825,6 +829,33 @@ exception.printStackTrace();
       tableColumn = Widgets.addTableColumn(widgetTodayTimeEntryTable,4,"Comments",SWT.LEFT, 200,true );
       tableColumn.addSelectionListener(selectionListener);
       Widgets.setTableColumnWidth(widgetTodayTimeEntryTable,Settings.geometryTodayTimeEntryColumns.width);
+
+      menu = Widgets.newPopupMenu(shell);
+      {
+        menuItem = Widgets.addMenuItem(menu,"Add new\u2026",Settings.keyNewTimeEntry);
+        menuItem.addSelectionListener(new SelectionListener()
+        {
+          public void widgetDefaultSelected(SelectionEvent selectionEvent)
+          {
+          }
+          public void widgetSelected(SelectionEvent selectionEvent)
+          {
+            Widgets.invoke(widgetNew);
+          }
+        });
+        menuItem = Widgets.addMenuItem(menu,"Delete\u2026",Settings.keyDeleteTimeEntry);
+        menuItem.addSelectionListener(new SelectionListener()
+        {
+          public void widgetDefaultSelected(SelectionEvent selectionEvent)
+          {
+          }
+          public void widgetSelected(SelectionEvent selectionEvent)
+          {
+            Widgets.invoke(widgetDelete);
+          }
+        });
+      }
+      widgetTodayTimeEntryTable.setMenu(menu);
 
       widgetTodayTimeEntryTable.addMouseListener(new MouseListener()
       {
@@ -1079,8 +1110,8 @@ exception.printStackTrace();
         Widgets.layout(widgetComments,3,1,TableLayoutData.WE);
         widgetComments.setToolTipText("New time entry comment line.");
 
-        widgetAddNew = Widgets.newButton(group,"Add new",ACCELERATOR_SAVE);
-        Widgets.layout(widgetAddNew,2,2,TableLayoutData.NSE,2,0);
+        widgetAdd = Widgets.newButton(group,"Add new",ACCELERATOR_SAVE);
+        Widgets.layout(widgetAdd,2,2,TableLayoutData.NSE,2,0);
       }
 
       // add listeners
@@ -1173,7 +1204,7 @@ exception.printStackTrace();
           widgetSpentMinuteFraction.setSelection(minuteFraction);
         }
       });
-      widgetAddNew.addSelectionListener(new SelectionListener()
+      widgetAdd.addSelectionListener(new SelectionListener()
       {
         public void widgetDefaultSelected(SelectionEvent selectionEvent)
         {
@@ -1275,7 +1306,7 @@ exception.printStackTrace();
             }
             else if (Widgets.isAccelerator(event,ACCELERATOR_SAVE))
             {
-              Widgets.invoke(widgetAddNew);
+              Widgets.invoke(widgetAdd);
               event.doit = false;
             }
           }
@@ -1284,7 +1315,7 @@ exception.printStackTrace();
       display.addFilter(SWT.KeyDown,keyListener);
 
       // set next focus
-      Widgets.setNextFocus(widgetProjects,widgetIssues,widgetSpentHourFraction,widgetSpentMinuteFraction,widgetActivities,widgetComments,widgetAddNew);
+      Widgets.setNextFocus(widgetProjects,widgetIssues,widgetSpentHourFraction,widgetSpentMinuteFraction,widgetActivities,widgetComments,widgetAdd);
     }
     widgetTabToday.addListener(SWT.Show,new Listener()
     {
@@ -1309,6 +1340,33 @@ exception.printStackTrace();
       Widgets.addTreeColumn(widgetTimeEntryTree,"Issue",   SWT.LEFT, 100,true);
       Widgets.addTreeColumn(widgetTimeEntryTree,"Comments",SWT.LEFT, 200,true);
       Widgets.setTreeColumnWidth(widgetTimeEntryTree,Settings.geometryTimeEntryColumns.width);
+
+      menu = Widgets.newPopupMenu(shell);
+      {
+        menuItem = Widgets.addMenuItem(menu,"Add new\u2026",Settings.keyNewTimeEntry);
+        menuItem.addSelectionListener(new SelectionListener()
+        {
+          public void widgetDefaultSelected(SelectionEvent selectionEvent)
+          {
+          }
+          public void widgetSelected(SelectionEvent selectionEvent)
+          {
+            Widgets.invoke(widgetNew);
+          }
+        });
+        menuItem = Widgets.addMenuItem(menu,"Delete\u2026",Settings.keyDeleteTimeEntry);
+        menuItem.addSelectionListener(new SelectionListener()
+        {
+          public void widgetDefaultSelected(SelectionEvent selectionEvent)
+          {
+          }
+          public void widgetSelected(SelectionEvent selectionEvent)
+          {
+            Widgets.invoke(widgetDelete);
+          }
+        });
+      }
+      widgetTimeEntryTree.setMenu(menu);
 
       widgetTimeEntryTree.addTreeListener(new TreeListener()
       {
@@ -1619,9 +1677,9 @@ exception.printStackTrace();
       composite.setLayout(new TableLayout(0.0,0.0));
       Widgets.layout(composite,1,0,TableLayoutData.E);
       {
-        button = Widgets.newButton(composite,"Add",Settings.keyNewTimeEntry);
-        Widgets.layout(button,0,0,TableLayoutData.E,0,0,0,0,80,SWT.DEFAULT);
-        button.addSelectionListener(new SelectionListener()
+        widgetNew = Widgets.newButton(composite,"Add\u2026",Settings.keyNewTimeEntry);
+        Widgets.layout(widgetNew,0,0,TableLayoutData.E,0,0,0,0,80,SWT.DEFAULT);
+        widgetNew.addSelectionListener(new SelectionListener()
         {
           public void widgetDefaultSelected(SelectionEvent selectionEvent)
           {
@@ -1659,9 +1717,9 @@ exception.printStackTrace();
           }
         });
 
-        button = Widgets.newButton(composite,"Remove",Settings.keyDeleteTimeEntry);
-        Widgets.layout(button,0,1,TableLayoutData.E,0,0,0,0,80,SWT.DEFAULT);
-        button.addSelectionListener(new SelectionListener()
+        widgetDelete = Widgets.newButton(composite,"Delete\u2026",Settings.keyDeleteTimeEntry);
+        Widgets.layout(widgetDelete,0,1,TableLayoutData.E,0,0,0,0,80,SWT.DEFAULT);
+        widgetDelete.addSelectionListener(new SelectionListener()
         {
           public void widgetDefaultSelected(SelectionEvent selectionEvent)
           {
@@ -3142,6 +3200,7 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
         Widgets.layout(subComposite,11,1,TableLayoutData.WE);
         {
 //TODO cache expire time
+//TODO requiredHoursPerDay
         }
       }
     }
