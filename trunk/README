@@ -11,6 +11,7 @@ accessible via a tray icon.
 * add, edit, delete time entries in the project manager tool Redmine
 * user specific view for a day
 * summary view for each day in the past
+* show insufficent working time in daily summary view
 * tray icon
 * written in Java with SWT: available for Linux, Solaris, MacOS, Windows
 
