@@ -517,8 +517,6 @@ $(DISTRIBUTION_NAME).tar.bz2: \
   \
   doc/README \
   doc/COPYING \
-  doc/timemine.odt \
-  doc/*.txt \
   doc/images/*.png \
   $(DOC)
 	$(INSTALL) -d tmp/$(DISTRIBUTION_NAME)
@@ -574,10 +572,6 @@ $(DISTRIBUTION_NAME).tar.bz2: \
 	$(INSTALL) -m 664 \
                    doc/README \
                    doc/COPYING \
-                   doc/timemine.odt \
-                   doc/timemine.pdf \
-                   doc/*.txt \
-                   doc/timemine.7 \
                    tmp/$(DISTRIBUTION_NAME)/doc
 	$(INSTALL) -d tmp/$(DISTRIBUTION_NAME)/doc/images
 	$(INSTALL) -m 664 \
@@ -622,4 +616,13 @@ $(DISTRIBUTION_NAME)-windows.zip: \
           timemine-windows.jar timemine-windows_64.jar \
           timemine.bat
 
+upload:
+	( \
+          $(ECHO) $(DISTRIBUTION_NAME).tar.bz2; \
+          $(ECHO) $(DISTRIBUTION_NAME)-linux.tar.bz2; \
+          $(ECHO) $(DISTRIBUTION_NAME)-solaris.tar.bz2; \
+          $(ECHO) $(DISTRIBUTION_NAME)-macosx.tar.bz2; \
+          $(ECHO) $(DISTRIBUTION_NAME)-windows.zip; \
+        ) | \
+        xargs ftp-upload -v --host ftp.berlios.de --user anonymous --password torsten.rupp@gmx.net --dir /incoming --full-path --binary
 # end of file
