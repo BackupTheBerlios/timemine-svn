@@ -616,6 +616,7 @@ $(DISTRIBUTION_NAME)-windows.zip: \
           timemine-windows.jar timemine-windows_64.jar \
           timemine.bat
 
+.PHONY: upload
 upload:
 	( \
           $(ECHO) $(DISTRIBUTION_NAME).tar.bz2; \
