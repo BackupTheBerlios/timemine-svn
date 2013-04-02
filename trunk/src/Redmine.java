@@ -514,12 +514,22 @@ public class Redmine
     // ---------------------------- methods ---------------------------------
 
     /** create element handler
+     * @param defaultResult default result value
+     */
+    ParseElementHandler(Object defaultResult)
+    {
+      this.index  = 0;
+      this.result = defaultResult;
+      this.done   = false;
+    }
+
+    /** create element handler
      */
     ParseElementHandler()
     {
-      this.index = 0;
-      this.done  = false;
+      this(null);
     }
+
 
     /** process root element handler
      * @param element header element
@@ -678,7 +688,7 @@ public class Redmine
     this.authorization = "Basic "+new String(Base64.encodeBase64((loginName+":"+loginPassword).getBytes()));
 
     // get login user id
-    this.ownUserId = (Integer)iterateData("/users/current","user",new ParseElementHandler<User>()
+    this.ownUserId = (Integer)iterateData("/users/current","user",new ParseElementHandler(new Integer(ID_NONE))
     {
       public void data(Element element)
       {
@@ -1620,8 +1630,6 @@ Dprintf.dprintf("todo: get at index");
       getTimeEntries(ID_ANY,ID_ANY,ID_ANY,null);
       index = timeEntryIdMap.get(timeEntryId);
     }
-Dprintf.dprintf("index=%s",index);
-
     if (index != null)
     {
       timeEntry = getTimeEntryAt(index);
@@ -1646,8 +1654,6 @@ Dprintf.dprintf("required?");
       getTimeEntries(ID_ANY,ID_ANY,ID_ANY,null);
       index = timeEntryDateMap.get(date);
     }
-Dprintf.dprintf("index=%s",index);
-
     if (index != null)
     {
       timeEntry = getTimeEntryAt(index);
@@ -1897,17 +1903,14 @@ Dprintf.dprintf("index=%s",index);
       }
       catch (ParserConfigurationException exception)
       {
-Dprintf.dprintf("");
         throw new RedmineException(exception);
       }
       catch (SAXException exception)
       {
-Dprintf.dprintf("");
         throw new RedmineException(exception);
       }
       catch (ProtocolException exception)
       {
-Dprintf.dprintf("");
         throw new RedmineException(exception);
       }
       catch (UnknownHostException exception)
@@ -2616,6 +2619,7 @@ Dprintf.dprintf("");
       }
 
       // get date of first time entry
+      timeEntryStartDate = new Date();
       getData("/time_entries","time_entry",timeEntryCount-1,1,new ParseElementHandler<TimeEntry>()
       {
         public void data(Element element)
