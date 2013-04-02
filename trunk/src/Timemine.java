@@ -14,17 +14,9 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Constructor;
 
-import java.security.NoSuchAlgorithmException;
-import java.security.InvalidKeyException;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
 
 import java.text.NumberFormat;
 import java.text.ParseException;
@@ -33,29 +25,14 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.Date;
-import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.LinkedList;
-import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.Timer;
 import java.util.TimerTask;
-
-import javax.activation.MimetypesFileTypeMap;
-
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.KeyGenerator;
-import javax.crypto.NoSuchPaddingException;
-import javax.crypto.spec.SecretKeySpec;
 
 // graphics
 import org.eclipse.swt.events.KeyEvent;
@@ -3074,6 +3051,7 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
     final Table   widgetColors;
 
     final Text    widgetDateFormat;
+    final Spinner widgetRequiredHoursPerDay;
     final Table   widgetShowFlags;
 
     final Button  widgetButtonSave;
@@ -3157,7 +3135,7 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
       }
 
       composite = Widgets.addTab(tabFolder,"Misc");
-      composite.setLayout(new TableLayout(new double[]{0.0,1.0,0.0},new double[]{0.0,1.0},2));
+      composite.setLayout(new TableLayout(new double[]{0.0,0.0,1.0,0.0},new double[]{0.0,1.0},2));
       Widgets.layout(composite,0,7,TableLayoutData.NSWE);
       {
         label = Widgets.newLabel(composite,"Date format:");
@@ -3167,11 +3145,20 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
         Widgets.layout(widgetDateFormat,0,1,TableLayoutData.WE);
         widgetDateFormat.setToolTipText("Date format.\nPatterns:\n  y - year digit\n  M - month digit\n  d - day digit\n  E - week day name");
 
+        label = Widgets.newLabel(composite,"Required hours per day:");
+        Widgets.layout(label,1,0,TableLayoutData.W);
+        widgetRequiredHoursPerDay = Widgets.newSpinner(composite,0);
+        widgetRequiredHoursPerDay.setTextLimit(2);
+        widgetRequiredHoursPerDay.setIncrement(1);
+        widgetRequiredHoursPerDay.setSelection((int)Settings.requiredHoursPerDay);
+        Widgets.layout(widgetRequiredHoursPerDay,1,1,TableLayoutData.W,0,0,0,0,60,SWT.DEFAULT);
+        widgetRequiredHoursPerDay.setToolTipText("Required working hours per day.");
+
         label = Widgets.newLabel(composite,"Show flags:");
-        Widgets.layout(label,1,0,TableLayoutData.NW);
+        Widgets.layout(label,2,0,TableLayoutData.NW);
         subComposite = Widgets.newComposite(composite);
         subComposite.setLayout(new TableLayout(1.0,1.0));
-        Widgets.layout(subComposite,1,1,TableLayoutData.NSWE);
+        Widgets.layout(subComposite,2,1,TableLayoutData.NSWE);
         {
           widgetShowFlags = Widgets.newTable(subComposite,SWT.CHECK);
           Widgets.layout(widgetShowFlags,0,0,TableLayoutData.NSWE);
@@ -3194,10 +3181,10 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
         }
 
         label = Widgets.newLabel(composite,"Miscellaneous:");
-        Widgets.layout(label,11,0,TableLayoutData.W);
+        Widgets.layout(label,3,0,TableLayoutData.W);
         subComposite = Widgets.newComposite(composite);
         subComposite.setLayout(new TableLayout(0.0,0.0));
-        Widgets.layout(subComposite,11,1,TableLayoutData.WE);
+        Widgets.layout(subComposite,3,1,TableLayoutData.WE);
         {
 //TODO cache expire time
 //TODO requiredHoursPerDay
@@ -3219,14 +3206,12 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
         }
         public void widgetSelected(SelectionEvent selectionEvent)
         {
-          Settings.serverName = widgetServerName.getText();
-          Settings.serverPort = widgetServerPort.getSelection();
-          Settings.loginName  = widgetLoginName.getText();
-
+          Settings.serverName          = widgetServerName.getText();
+          Settings.serverPort          = widgetServerPort.getSelection();
+          Settings.loginName           = widgetLoginName.getText();
           saveColors(widgetColors);
-
-          Settings.dateFormat = widgetDateFormat.getText().trim();
-
+          Settings.dateFormat          = widgetDateFormat.getText().trim();
+          Settings.requiredHoursPerDay = (double)widgetRequiredHoursPerDay.getSelection();
           for (TableItem tableItem : widgetShowFlags.getItems())
           {
             Object data = tableItem.getData();
