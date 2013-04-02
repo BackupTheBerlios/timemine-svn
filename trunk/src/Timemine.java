@@ -249,21 +249,24 @@ public class Timemine
    */
   class LoginData
   {
-    String serverName;
-    int    serverPort;
-    String loginName;
-    String loginPassword;
+    String  serverName;
+    int     serverPort;
+    boolean serverUseSSL;
+    String  loginName;
+    String  loginPassword;
 
     /** create login data
      * @param serverName server name
      * @param serverPort server port
+     * @param serverUseSSL truf iff server use SSL
      * @param loginName login name
      * @param loginPassword login password
      */
-    LoginData(String serverName, int serverPort, String loginName, String loginPassword)
+    LoginData(String serverName, int serverPort, boolean serverUseSSL, String loginName, String loginPassword)
     {
       this.serverName    = !serverName.equals("") ? serverName : Settings.serverName;
       this.serverPort    = (serverPort != 0) ? serverPort : Settings.serverPort;
+      this.serverUseSSL  = serverUseSSL;
       this.loginName     = !loginName.equals("") ? loginName : Settings.loginName;
       this.loginPassword = !loginPassword.equals("") ? loginPassword : Settings.loginPassword;
     }
@@ -331,10 +334,12 @@ public class Timemine
   // command line options
   private static final Option[] options =
   {
-    new Option("--server",                     "-h",Options.Types.STRING, "serverName"   ),
+    new Option("--host",                       "-h",Options.Types.STRING, "serverName"   ),
     new Option("--port",                       "-p",Options.Types.INTEGER,"serverPort"   ),
+    new Option("--ssl",                        "-p",Options.Types.BOOLEAN,"serverUseSSL" ),
     new Option("--name",                       "-n",Options.Types.STRING, "loginName"    ),
     new Option("--password",                   null,Options.Types.STRING, "loginPassword"),
+    new Option("--show-login",                 null,Options.Types.BOOLEAN,"showLoginFlag"),
 
     new Option("--help",                       "-h",Options.Types.BOOLEAN,"helpFlag"     ),
 
@@ -1935,16 +1940,16 @@ Dprintf.dprintf("");
     initDisplay();
 
     // connect to Redmine server
-    LoginData loginData = new LoginData(Settings.serverName,Settings.serverPort,Settings.loginName,Settings.loginPassword);
+    LoginData loginData = new LoginData(Settings.serverName,Settings.serverPort,Settings.serverUseSSL,Settings.loginName,Settings.loginPassword);
     boolean connectOkFlag = false;
-    if (!connectOkFlag)
+    if (!Settings.showLoginFlag && !connectOkFlag)
     {
       // try to connect to Redmine server with given credentials
       try
       {
         // init Redmine client
 //Dprintf.dprintf("%s %d name=%s pass=%s",loginData.serverName,loginData.serverPort,loginData.loginName,loginData.loginPassword);
-        redmine = new Redmine(loginData.serverName,loginData.serverPort,loginData.loginName,loginData.loginPassword);
+        redmine = new Redmine(loginData.serverName,loginData.serverPort,loginData.serverUseSSL,loginData.loginName,loginData.loginPassword);
         connectOkFlag = true;
       }
       catch (RedmineException exception)
@@ -1964,20 +1969,26 @@ Dprintf.dprintf("");
       try
       {
         // init Redmine client
-        redmine = new Redmine(loginData.serverName,loginData.serverPort,loginData.loginName,loginData.loginPassword);
+        redmine = new Redmine(loginData.serverName,
+                              loginData.serverPort,
+                              loginData.serverUseSSL,
+                              loginData.loginName,
+                              loginData.loginPassword
+                             );
         connectOkFlag = true;
       }
       catch (RedmineException exception)
       {
-        if (!Dialogs.confirmError(new Shell(),"Connection fail","Error: "+exception.getMessage(),"Try again","Cancel"))
+        if (!Dialogs.confirmError(new Shell(),"Connection fail","Error: "+exception.getMessage()+((exception.getCause() != null) ? ":\n\n"+exception.getCause().getMessage() : ""),"Try again","Cancel"))
         {
           System.exit(EXITCODE_FAIL);
         }
       }
     }
-    Settings.serverName = loginData.serverName;
-    Settings.serverPort = loginData.serverPort;
-    Settings.loginName  = loginData.loginName;
+    Settings.serverName   = loginData.serverName;
+    Settings.serverPort   = loginData.serverPort;
+    Settings.serverUseSSL = loginData.serverUseSSL;
+    Settings.loginName    = loginData.loginName;
 
     // add watchdog for loaded classes/JARs
     initClassesWatchDog();
@@ -2260,9 +2271,9 @@ Dprintf.dprintf("");
 
     final Shell dialog = Dialogs.openModal(new Shell(),"Login Redmine server",300,SWT.DEFAULT);
 
-    // password
     final Text    widgetServerName;
     final Spinner widgetServerPort;
+    final Button  widgetServerUseSSL;
     final Text    widgetLoginName;
     final Text    widgetLoginPassword;
     final Button  widgetLoginButton;
@@ -2289,6 +2300,10 @@ Dprintf.dprintf("");
         widgetServerPort.setTextLimit(5);
         widgetServerPort.setSelection(loginData.serverPort);
         Widgets.layout(widgetServerPort,0,2,TableLayoutData.WE);
+
+        widgetServerUseSSL = Widgets.newCheckbox(subComposite,"SSL");
+        widgetServerUseSSL.setSelection(loginData.serverUseSSL);
+        Widgets.layout(widgetServerUseSSL,0,3,TableLayoutData.E);
       }
 
       label = Widgets.newLabel(composite,"Name:");
@@ -2321,6 +2336,7 @@ Dprintf.dprintf("");
         {
           loginData.serverName    = widgetServerName.getText();
           loginData.serverPort    = widgetServerPort.getSelection();
+          loginData.serverUseSSL  = widgetServerUseSSL.getSelection();
           loginData.loginName     = widgetLoginName.getText();
           loginData.loginPassword = widgetLoginPassword.getText();
           Dialogs.close(dialog,true);
@@ -2344,7 +2360,7 @@ Dprintf.dprintf("");
     // add listeners
 
     // set next focus
-    Widgets.setNextFocus(widgetServerName,widgetServerPort,widgetLoginName,widgetLoginPassword,widgetLoginButton);
+    Widgets.setNextFocus(widgetServerName,widgetServerPort,widgetServerUseSSL,widgetLoginName,widgetLoginPassword,widgetLoginButton);
 
     // run
     if ((loginData.serverName != null) && (loginData.serverName.length() != 0)) Widgets.setFocus(widgetLoginPassword);
@@ -3046,6 +3062,7 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
 
     final Text    widgetServerName;
     final Spinner widgetServerPort;
+    final Button  widgetServerUseSSL;
     final Text    widgetLoginName;
 
     final Table   widgetColors;
@@ -3082,6 +3099,10 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
           widgetServerPort.setTextLimit(5);
           widgetServerPort.setSelection(Settings.serverPort);
           Widgets.layout(widgetServerPort,0,2,TableLayoutData.WE);
+
+          widgetServerUseSSL = Widgets.newCheckbox(subComposite,"SSL");
+          widgetServerUseSSL.setSelection(Settings.serverUseSSL);
+          Widgets.layout(widgetServerUseSSL,0,3,TableLayoutData.E);
         }
 
         label = Widgets.newLabel(composite,"Login name:");
@@ -3091,7 +3112,7 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
         if (Settings.loginName != null) widgetLoginName.setText(Settings.loginName);
         Widgets.layout(widgetLoginName,1,1,TableLayoutData.WE);
       }
-      Widgets.setNextFocus(widgetServerName,widgetServerPort,widgetLoginName);
+      Widgets.setNextFocus(widgetServerName,widgetServerPort,widgetServerUseSSL,widgetLoginName);
 
       composite = Widgets.addTab(tabFolder,"Colors");
       composite.setLayout(new TableLayout(1.0,1.0,2));
@@ -3208,6 +3229,7 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
         {
           Settings.serverName          = widgetServerName.getText();
           Settings.serverPort          = widgetServerPort.getSelection();
+          Settings.serverUseSSL        = widgetServerUseSSL.getSelection();
           Settings.loginName           = widgetLoginName.getText();
           saveColors(widgetColors);
           Settings.dateFormat          = widgetDateFormat.getText().trim();

@@ -33,6 +33,20 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Locale;
 
+// SSL
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+
 // XML
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -49,7 +63,6 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
-
 
 // Apache commons
 import org.apache.commons.codec.binary.Base64;
@@ -627,20 +640,23 @@ public class Redmine
   }
 
   // --------------------------- constants --------------------------------
-  public  final static int ID_ANY  = -1;
-  public  final static int ID_NONE =  0;
+  public  final static int               ID_ANY          = -1;
+  public  final static int               ID_NONE         =  0;
 
-  private final static int              ENTRY_LIMIT     = 100; // max. 100
-  private final static SimpleDateFormat DATE_FORMAT     = new SimpleDateFormat("yyyy-MM-dd");
-  private final static SimpleDateFormat DATETIME_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+  private final static int               ENTRY_LIMIT     = 100; // max. 100
+  private final static SimpleDateFormat  DATE_FORMAT     = new SimpleDateFormat("yyyy-MM-dd");
+  private final static SimpleDateFormat  DATETIME_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
 
   private final SoftReference<TimeEntry> TIME_ENTRY_NULL = new SoftReference<TimeEntry>(null);
 
   // --------------------------- variables --------------------------------
 
-  private String                              server;
-  private int                                 port;
+  private String                              serverName;
+  private int                                 serverPort;
+  private boolean                             serverUseSSL;
   private String                              authorization;
+
+  private HostnameVerifier                    anyHostnameVerifier;
 
   private int                                 ownUserId;
 
@@ -675,17 +691,45 @@ public class Redmine
   // ---------------------------- methods ---------------------------------
 
   /** initialize Redmine client
-   * @param server server name
-   * @param port server port
+   * @param serverName server name
+   * @param serverPort server port
+   * @param serverUseSSL true iff server use SSL
    * @param loginName login name
    * @param loginPasssword login password
    */
-  public Redmine(String server, int port, final String loginName, String loginPassword)
+  public Redmine(String serverName, int serverPort, boolean serverUseSSL, final String loginName, String loginPassword)
     throws RedmineException
   {
-    this.server        = server;
-    this.port          = port;
+    // initialize variables
+    this.serverName    = serverName;
+    this.serverPort    = serverPort;
+    this.serverUseSSL  = serverUseSSL;
     this.authorization = "Basic "+new String(Base64.encodeBase64((loginName+":"+loginPassword).getBytes()));
+
+    // host name verifier which accept all host names
+    this.anyHostnameVerifier = new HostnameVerifier()
+    {
+      public boolean verify(String hostname, SSLSession session)
+      {
+        return true;
+      }
+    };
+
+    // install trust-manager which accept all certificates
+    try
+    {
+      SSLContext sslContext = SSLContext.getInstance("TLS");
+      sslContext.init(new KeyManager[0],new TrustManager[]{new AnyTrustManager()},new SecureRandom());
+      SSLContext.setDefault(sslContext);
+    }
+    catch (KeyManagementException exception)
+    {
+      throw new RedmineException("SSL fail",exception);
+    }
+    catch (NoSuchAlgorithmException exception)
+    {
+      throw new RedmineException("SSL fail",exception);
+    }
 
     // get login user id
     this.ownUserId = (Integer)iterateData("/users/current","user",new ParseElementHandler(new Integer(ID_NONE))
@@ -1826,6 +1870,75 @@ Dprintf.dprintf("required?");
 
   //-----------------------------------------------------------------------
 
+  /** trust manager which accept any certificate
+   */
+  private static class AnyTrustManager implements X509TrustManager
+  {
+    @Override
+    public void checkClientTrusted(X509Certificate[] arg0, String arg1)
+      throws CertificateException
+    {
+    }
+
+    @Override
+    public void checkServerTrusted(X509Certificate[] arg0, String arg1)
+      throws CertificateException
+    {
+    }
+
+    @Override
+    public X509Certificate[] getAcceptedIssuers()
+    {
+      return null;
+    }
+  }
+
+  /** connect to server via http/https
+   * @param urlString URL string
+   * @param arguments arguments or null
+   */
+  private HttpURLConnection getConnection(String urlString, String arguments)
+    throws RedmineException
+  {
+    HttpURLConnection connection = null;
+
+    try
+    {
+      if (serverUseSSL)
+      {
+        URL url = new URL("https://"+serverName+/*":"+serverPort+*/urlString+".xml"+((arguments != null) ? "?"+arguments : ""));
+        HttpsURLConnection httpsConnection = (HttpsURLConnection)url.openConnection();
+        httpsConnection.setHostnameVerifier(anyHostnameVerifier);
+        connection = httpsConnection;
+      }
+      else
+      {
+        URL url = new URL("http://"+serverName+/*":"+serverPort+*/urlString+".xml"+((arguments != null) ? "?"+arguments : ""));
+        HttpURLConnection httpConnection = (HttpURLConnection)url.openConnection();
+        connection = httpConnection;
+      }
+    }
+    catch (UnknownHostException exception)
+    {
+      throw new RedmineException("Unknown host '"+serverName+"'");
+    }
+    catch (IOException exception)
+    {
+      throw new RedmineException("Receive data fail",exception);
+    }
+
+    return connection;
+  }
+
+  /** connect to server via http/https
+   * @param urlString URL string
+   */
+  private HttpURLConnection getConnection(String urlString)
+    throws RedmineException
+  {
+    return getConnection(urlString,null);
+  }
+
   /** get data
    * @param urlString URL string
    * @param name XML entry name
@@ -1852,14 +1965,13 @@ Dprintf.dprintf("required?");
         DocumentBuilder        documentBuilder        = documentBuilderFactory.newDocumentBuilder();
 
         // get data from Redmine server
-        URL url = new URL("http://"+server+":"+port+urlString+".xml?offset="+offset+"&limit="+Math.min(length,ENTRY_LIMIT));
-        connection = (HttpURLConnection)url.openConnection();
+        connection = getConnection(urlString,"offset="+offset+"&limit="+Math.min(length,ENTRY_LIMIT));
         connection.setRequestMethod("GET");
         connection.setDoOutput(false);
         connection.setRequestProperty("Authorization",authorization);
         if (Settings.debugFlag)
         {
-          System.err.println("DEBUG: Get '"+url+"'");
+          System.err.println("DEBUG: Get '"+connection.getURL()+"'");
         }
 
         // parse XML
@@ -1903,11 +2015,11 @@ Dprintf.dprintf("required?");
       }
       catch (ParserConfigurationException exception)
       {
-        throw new RedmineException(exception);
+        throw new RedmineException("XML parse fail",exception);
       }
       catch (SAXException exception)
       {
-        throw new RedmineException(exception);
+        throw new RedmineException("XML parse fail",exception);
       }
       catch (ProtocolException exception)
       {
@@ -1915,7 +2027,7 @@ Dprintf.dprintf("required?");
       }
       catch (UnknownHostException exception)
       {
-        throw new RedmineException("Unknown host '"+server+"'");
+        throw new RedmineException("Unknown host '"+serverName+"'");
       }
       catch (IOException exception)
       {
@@ -2008,15 +2120,14 @@ Dprintf.dprintf("required?");
       createHandler.data(document,rootElement);
 
       // add data on Redmine server
-      URL url = new URL("http://"+server+":"+port+urlString+".xml");
-      connection = (HttpURLConnection)url.openConnection();
+      connection = getConnection(urlString);
       connection.setRequestMethod("POST");
       connection.setDoOutput(true);
       connection.setRequestProperty("Content-Type","application/xml; charset=utf-8");
       connection.setRequestProperty("Authorization",authorization);
       if (Settings.debugFlag)
       {
-        System.err.println("DEBUG: Post '"+url+"'");
+        System.err.println("DEBUG: Post '"+connection.getURL()+"'");
       }
 
       // output data
@@ -2076,7 +2187,7 @@ Dprintf.dprintf("required?");
     }
     catch (UnknownHostException exception)
     {
-      throw new RedmineException("Unknown host '"+server+"'");
+      throw new RedmineException("Unknown host '"+serverName+"'");
     }
     catch (IOException exception)
     {
@@ -2114,15 +2225,14 @@ Dprintf.dprintf("required?");
       createHandler.data(document,rootElement);
 
       // update data on Redmine server
-      URL url = new URL("http://"+server+":"+port+urlString+".xml");
-      connection = (HttpURLConnection)url.openConnection();
+      connection = getConnection(urlString);
       connection.setRequestMethod("PUT");
       connection.setDoOutput(true);
       connection.setRequestProperty("Content-Type","application/xml; charset=utf-8");
       connection.setRequestProperty("Authorization",authorization);
       if (Settings.debugFlag)
       {
-        System.err.println("DEBUG: Put '"+url+"'");
+        System.err.println("DEBUG: Put '"+connection.getURL()+"'");
       }
 
       // output data
@@ -2157,7 +2267,7 @@ Dprintf.dprintf("required?");
     }
     catch (UnknownHostException exception)
     {
-      throw new RedmineException("Unknown host '"+server+"'");
+      throw new RedmineException("Unknown host '"+serverName+"'");
     }
     catch (IOException exception)
     {
@@ -2185,15 +2295,14 @@ Dprintf.dprintf("required?");
       DocumentBuilder        documentBuilder        = documentBuilderFactory.newDocumentBuilder();
 
       // delete data from Redmine server
-      URL url = new URL("http://"+server+":"+port+urlString+".xml");
-      connection = (HttpURLConnection)url.openConnection();
+      connection = getConnection(urlString);
       connection.setRequestMethod("DELETE");
       connection.setDoOutput(true);
       connection.setRequestProperty("Content-Type","application/xml; charset=utf-8");
       connection.setRequestProperty("Authorization",authorization);
       if (Settings.debugFlag)
       {
-        System.err.println("DEBUG: Delete '"+url+"'");
+        System.err.println("DEBUG: Delete '"+connection.getURL()+"'");
       }
 
       // check result
@@ -2211,7 +2320,7 @@ Dprintf.dprintf("required?");
     }
     catch (UnknownHostException exception)
     {
-      throw new RedmineException("Unknown host '"+server+"'");
+      throw new RedmineException("Unknown host '"+serverName+"'");
     }
     catch (IOException exception)
     {

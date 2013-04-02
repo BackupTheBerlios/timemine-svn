@@ -436,10 +436,12 @@ public class Settings
   @SettingValue
   public static int                      serverPort                             = 3000;
   @SettingValue
+  public static boolean                  serverUseSSL                           = false;
+  @SettingValue
   public static String                   loginName                              = "";
   // do not save password
   public static String                   loginPassword                          = "";
-
+  
   @SettingComment(text={"","Geometry: <width>x<height>","Geometry columns: <width>,..."})
   @SettingValue(type=SettingValueAdapterSize.class)
   public static Point                    geometryMain                           = new Point(600,400);
@@ -505,7 +507,8 @@ public class Settings
   @SettingValue
   public static Boolean                  showRestartAfterConfigChanged          = new Boolean(true);
 
-  // debug
+  // miscelanous flags
+  public static boolean                  showLoginFlag                          = false;
   public static boolean                  debugFlag                              = false;
 
   // help
