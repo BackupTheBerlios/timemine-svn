@@ -736,12 +736,8 @@ public class Redmine
     {
       public void data(Element element)
       {
-        String value = getValue(element,"login");
-
-        if ((value != null) && value.equals(loginName))
-        {
-          done(getIntValue(element,"id"));
-        }
+//Dprintf.dprintf("getValue(element,login)=%s id=%d",getValue(element,"login"),getIntValue(element,"id"));
+        done(getIntValue(element,"id"));
       }
     });
   }
@@ -767,6 +763,7 @@ public class Redmine
       {
         public void data(Element element)
         {
+//Dprintf.dprintf("element=%s",element);
           User user = new User(getIntValue(element,"id"),
                                getValue(element,"firstname"),
                                getValue(element,"lastname"),
@@ -1042,24 +1039,13 @@ public class Redmine
   }
 
   /** get Redmine projects as an array
-   * @param refreshFlag true to refresh data
-   * @return project array
-   */
-  public Project[] getProjectArray(boolean refreshFlag)
-    throws RedmineException
-  {
-    if (refreshFlag) clearProjectCache();
-    getProjects();
-    return projectMap.values().toArray(new Redmine.Project[projectMap.size()]);
-  }
-
-  /** get Redmine projects as an array
    * @return project array
    */
   public Project[] getProjectArray()
     throws RedmineException
   {
-    return getProjectArray(false);
+    getProjects();
+    return projectMap.values().toArray(new Redmine.Project[projectMap.size()]);
   }
 
   /** get Redmine project
@@ -1143,13 +1129,11 @@ public class Redmine
 
   /** get Redmine issues as an array
    * @param projectId project id
-   * @param refreshFlag true to refresh data
    * @return issue array
    */
-  public Issue[] getIssueArray(int projectId, boolean refreshFlag)
+  public Issue[] getIssueArray(int projectId)
     throws RedmineException
   {
-    if (refreshFlag) clearIssueCache();
     getIssues(projectId);
 
     ArrayList<Issue> issueList = new ArrayList<Issue>();
@@ -1159,16 +1143,6 @@ public class Redmine
     }
 
     return issueList.toArray(new Redmine.Issue[issueList.size()]);
-  }
-
-  /** get Redmine issues as an array
-   * @param projectId project id
-   * @return issue array
-   */
-  public Issue[] getIssueArray(int projectId)
-    throws RedmineException
-  {
-    return getIssueArray(projectId,false);
   }
 
   /** get Redmine issue
@@ -1199,16 +1173,12 @@ public class Redmine
    * @param issueId issue id or ID_ANY
    * @param userId user id or ID_ANY
    * @param spentOn spent-on date or null
-   * @param refreshFlag true to refresh data
-   * @return issue hash map <id,time entry>
+   * @return time entry hash map <id,time entry>
    */
-  public synchronized SoftHashMap<Integer,TimeEntry> getTimeEntries(final int projectId, final int issueId, final int userId, final Date spentOn, boolean refreshFlag)
+  public synchronized SoftHashMap<Integer,TimeEntry> getTimeEntries(final int projectId, final int issueId, final int userId, final Date spentOn)
     throws RedmineException
   {
     SoftHashMap<Integer,TimeEntry> timeEntryMap = new SoftHashMap<Integer,TimeEntry>();
-
-    // clear data if refresh is requested
-    if (refreshFlag) clearTimeEntryCache();
 
     // update number of time entries, start date
     updateTimeEntryData();
@@ -1245,16 +1215,14 @@ public class Redmine
   }
 
   /** get Redmine time entries
-   * @param projectId project id or ID_ANY
-   * @param issueId issue id or ID_ANY
    * @param userId user id or ID_ANY
    * @param spentOn spent-on date or null
    * @return time entry hash map <id,time entry>
    */
-  public SoftHashMap<Integer,TimeEntry> getTimeEntries(int projectId, int issueId, int userId, Date spentOn)
+  public SoftHashMap<Integer,TimeEntry> getTimeEntries(Date spentOn)
     throws RedmineException
   {
-    return getTimeEntries(projectId,issueId,userId,spentOn,false);
+    return getTimeEntries(ID_ANY,ID_ANY,ownUserId,spentOn);
   }
 
   /** get Redmine time entires
@@ -1384,16 +1352,12 @@ public class Redmine
    * @param issueId issue id or ID_ANY
    * @param userId user id or ID_ANY
    * @param spentOn spent-on date or null
-   * @param refreshFlag true to refresh data
    * @return hours sum of time entries
    */
-  public synchronized double getTimeEntryHoursSum(int projectId, int issueId, int userId, Date spentOn, boolean refreshFlag)
+  public synchronized double getTimeEntryHoursSum(int projectId, int issueId, int userId, Date spentOn)
     throws RedmineException
   {
     double hoursSum = 0.0;
-
-    // clear data if refresh is requested
-    if (refreshFlag) clearTimeEntryCache();
 
     // update number of time entries, start date
     updateTimeEntryData();
@@ -1417,40 +1381,23 @@ public class Redmine
       {
         TimeEntry timeEntry = softReference.get();
 
+        // match entry
         if (matchTimeEntry(timeEntry,projectId,issueId,userId,spentOn))
         {
+//Dprintf.dprintf("add %s: %f",timeEntry.spentOn,timeEntry.hours);
           hoursSum += timeEntry.hours;
+        }
+
+        // stop when date is found before given spent date (Note: assume time entries are sorted descended)
+        if (isTimeEntryBefore(timeEntry,spentOn))
+        {
+//Dprintf.dprintf("stop %s",timeEntry);
+          break;
         }
       }
     }
 
     return hoursSum;
-  }
-
-  /** get hours sum of time entries
-   * @param projectId project id or ID_ANY
-   * @param issueId issue id or ID_ANY
-   * @param userId user id or ID_ANY
-   * @param spentOn spent-on date or null
-   * @return hours sum of time entries
-   */
-  public synchronized double getTimeEntryHoursSum(int projectId, int issueId, int userId, Date spentOn)
-    throws RedmineException
-  {
-    return getTimeEntryHoursSum(projectId,issueId,userId,spentOn,false);
-  }
-
-  /** get hours sum of own time entries
-   * @param projectId project id or ID_ANY
-   * @param issueId issue id or ID_ANY
-   * @param spentOn spent-on date or null
-   * @param refreshFlag true to refresh data
-   * @return hours sum of time entries
-   */
-  public double getTimeEntryHoursSum(int projectId, int issueId, Date spentOn, boolean refreshFlag)
-    throws RedmineException
-  {
-    return getTimeEntryHoursSum(projectId,issueId,ownUserId,spentOn,refreshFlag);
   }
 
   /** get hours sum of own time entries
@@ -1462,18 +1409,7 @@ public class Redmine
   public double getTimeEntryHoursSum(int projectId, int issueId, Date spentOn)
     throws RedmineException
   {
-    return getTimeEntryHoursSum(projectId,issueId,ownUserId,spentOn,false);
-  }
-
-  /** get hours sum of own time entries
-   * @param projectId project id or ID_ANY
-   * @param issueId issue id or ID_ANY
-   * @return hours sum of time entries
-   */
-  public double getTimeEntryHoursSum(int projectId, int issueId, boolean refreshFlag)
-    throws RedmineException
-  {
-    return getTimeEntryHoursSum(projectId,issueId,ownUserId,null,refreshFlag);
+    return getTimeEntryHoursSum(projectId,issueId,ownUserId,spentOn);
   }
 
   /** get hours sum of own time entries
@@ -1484,18 +1420,7 @@ public class Redmine
   public double getTimeEntryHoursSum(int projectId, int issueId)
     throws RedmineException
   {
-    return getTimeEntryHoursSum(projectId,issueId,false);
-  }
-
-  /** get hours sum of own time entries
-   * @param spentOn spent-on date or null
-   * @param refreshFlag true to refresh data
-   * @return hours sum of time entries
-   */
-  public double getTimeEntryHoursSum(Date spentOn, boolean refreshFlag)
-    throws RedmineException
-  {
-    return getTimeEntryHoursSum(ID_ANY,ID_ANY,ownUserId,spentOn,refreshFlag);
+    return getTimeEntryHoursSum(projectId,issueId,ownUserId,null);
   }
 
   /** get hours sum of own time entries
@@ -1505,7 +1430,7 @@ public class Redmine
   public double getTimeEntryHoursSum(Date spentOn)
     throws RedmineException
   {
-    return getTimeEntryHoursSum(spentOn,false);
+    return getTimeEntryHoursSum(ID_ANY,ID_ANY,ownUserId,spentOn);
   }
 
   /** get Redmine time entries as an array
@@ -1513,50 +1438,45 @@ public class Redmine
    * @param issueId issue id or ID_ANY
    * @param userId user id or ID_ANY
    * @param spentOn spent-on date or null
-   * @param refreshFlag true to refresh data
    * @return time entry array
    */
-  public synchronized TimeEntry[] getTimeEntryArray(int projectId, int issueId, int userId, Date spentOn, boolean refreshFlag)
+  public synchronized TimeEntry[] getTimeEntryArray(int projectId, int issueId, int userId, Date spentOn)
     throws RedmineException
   {
-    // fill specific time entries
-    getTimeEntries(projectId,issueId,userId,spentOn,refreshFlag);
+    // update number of time entries, start date
+    updateTimeEntryData();
 
     // create array
     ArrayList<TimeEntry> filteredTimeEntries = new ArrayList<TimeEntry>();
     for (int i = 0; i < timeEntries.size(); i++)
     {
+      // get soft-reference for entry
       SoftReference<TimeEntry> softReference = timeEntries.get(i);
+      if ((softReference == null) || (softReference.get() == null))
+      {
+        // fill time entry array (get as much data a possible with single request)
+        fillTimeEntry(i,ENTRY_LIMIT);
+
+        // get soft-reference for entry
+        softReference = timeEntries.get(i);
+      }
+
+      // get time entry
       if ((softReference != null) && (softReference.get() != null))
       {
         TimeEntry timeEntry = softReference.get();
+//Dprintf.dprintf("timeEntry=%s",timeEntry);
 
-        Calendar calendar0 = null;
-        Calendar calendar1 = null;
-        if (spentOn != null)
+        if (matchTimeEntry(timeEntry,projectId,issueId,userId,spentOn))
         {
-          calendar0 = Calendar.getInstance(); calendar0.setTime(spentOn);
-          calendar1 = Calendar.getInstance(); calendar1.setTime(timeEntry.spentOn);
-        }
-        if (   (   (projectId == ID_ANY)
-                || (timeEntry.projectId == projectId)
-               )
-            && (   (issueId == ID_ANY)
-                || (timeEntry.issueId == issueId)
-               )
-            && (   (userId == ID_ANY)
-                || (timeEntry.userId == userId)
-               )
-            && (   (spentOn == null)
-                || (   (calendar0.get(Calendar.YEAR ) == calendar1.get(Calendar.YEAR ))
-                    && (calendar0.get(Calendar.MONTH) == calendar1.get(Calendar.MONTH))
-                    && (calendar0.get(Calendar.DATE ) == calendar1.get(Calendar.DATE ))
-                   )
-               )
-           )
-        {
-//Dprintf.dprintf("calendar0=%s calendar1=%s",calendar0,calendar1);
+//Dprintf.dprintf("add timeEntry=%s",timeEntry);
           filteredTimeEntries.add(timeEntry);
+        }
+
+        // stop when date is found before given spent date (Note: assume time entries are sorted descended)
+        if ((spentOn != null) && isTimeEntryBefore(timeEntry,spentOn))
+        {
+          break;
         }
       }
     }
@@ -1568,48 +1488,12 @@ public class Redmine
    * @param projectId project id or ID_ANY
    * @param issueId issue id or ID_ANY
    * @param spentOn spent-on date or null
-   * @param refreshFlag true to refresh data
-   * @return time entry array
-   */
-  public TimeEntry[] getTimeEntryArray(int projectId, int issueId, Date spentOn, boolean refreshFlag)
-    throws RedmineException
-  {
-    return getTimeEntryArray(projectId,issueId,ownUserId,spentOn,refreshFlag);
-  }
-
-  /** get own Redmine time entries as an array
-   * @param projectId project id or ID_ANY
-   * @param issueId issue id or ID_ANY
-   * @param spentOn spent-on date or null
    * @return time entry array
    */
   public TimeEntry[] getTimeEntryArray(int projectId, int issueId, Date spentOn)
     throws RedmineException
   {
-    return getTimeEntryArray(projectId,issueId,ownUserId,spentOn,false);
-  }
-
-  /** get own Redmine time entries of today as an array
-   * @param projectId project id or ID_ANY
-   * @param issueId issue id or ID_ANY
-   * @param refreshFlag true to refresh data
-   * @return time entry array
-   */
-  public TimeEntry[] getTimeEntryArray(int projectId, int issueId, boolean refreshFlag)
-    throws RedmineException
-  {
-    return getTimeEntryArray(projectId,issueId,ownUserId,new Date(),refreshFlag);
-  }
-
-  /** get own Redmine time entries as an array
-   * @param spentOn spent-on date or null
-   * @param refreshFlag true to refresh data
-   * @return time entry array
-   */
-  public TimeEntry[] getTimeEntryArray(Date spentOn, boolean refreshFlag)
-    throws RedmineException
-  {
-    return getTimeEntryArray(ID_ANY,ID_ANY,spentOn,refreshFlag);
+    return getTimeEntryArray(projectId,issueId,ownUserId,spentOn);
   }
 
   /** get own Redmine time entries as an array
@@ -1630,7 +1514,7 @@ public class Redmine
   public TimeEntry[] getTimeEntryArray(int projectId, int issueId)
     throws RedmineException
   {
-    return getTimeEntryArray(projectId,issueId,false);
+    return getTimeEntryArray(projectId,issueId,new Date());
   }
 
   /** get Redmine time entry
@@ -1704,6 +1588,74 @@ Dprintf.dprintf("required?");
     }
 
     return timeEntry;
+  }
+
+  /** clear user cache
+   */
+  public void clearUserCache()
+  {
+    userMap.clear();
+    userMapUpdateTimeStamp = 0L;
+  }
+
+  /** clear tracker cache
+   */
+  public void clearTrackerCache()
+  {
+    trackerMap.clear();
+    trackerMapUpdateTimeStamp = 0L;
+  }
+
+  /** clear status cache
+   */
+  public void clearStatusCache()
+  {
+    statusMap.clear();
+    statusMapUpdateTimeStamp = 0L;
+  }
+
+  /** clear priority cache
+   */
+  public void clearPriorityCache()
+  {
+    priorityMap.clear();
+    priorityMapUpdateTimeStamp = 0L;
+  }
+
+  /** clear activity cache
+   */
+  public void clearActivityCache()
+  {
+    activityMap.clear();
+    activityMapUpdateTimeStamp = 0L;
+  }
+
+  /** clear project cache
+   */
+  public void clearProjectCache()
+  {
+    projectMap.clear();
+    projectMapUpdateTimeStamp = 0L;
+  }
+
+  /** clear issue cache
+   */
+  public void clearIssueCache()
+  {
+    issueMap.clear();
+    issueMapUpdateTimeStamp = 0L;
+    issueMapProjectId = ID_NONE;
+  }
+
+  /** clear time entry cache
+   */
+  public void clearTimeEntryCache()
+  {
+    for (int i = 0; i < timeEntries.size(); i++)
+    {
+      timeEntries.set(i,TIME_ENTRY_NULL);
+    }
+    timeEntriesUpdateTimeStamp = 0L;
   }
 
   /** add time entry
@@ -1796,76 +1748,6 @@ Dprintf.dprintf("required?");
   public static double toHours(int hourFraction, int minuteFraction)
   {
     return (double)hourFraction+(double)minuteFraction/60.0;
-  }
-
-  //-----------------------------------------------------------------------
-
-  /** clear user cache
-   */
-  private void clearUserCache()
-  {
-    userMap.clear();
-    userMapUpdateTimeStamp = 0L;
-  }
-
-  /** clear tracker cache
-   */
-  private void clearTrackerCache()
-  {
-    trackerMap.clear();
-    trackerMapUpdateTimeStamp = 0L;
-  }
-
-  /** clear status cache
-   */
-  private void clearStatusCache()
-  {
-    statusMap.clear();
-    statusMapUpdateTimeStamp = 0L;
-  }
-
-  /** clear priority cache
-   */
-  private void clearPriorityCache()
-  {
-    priorityMap.clear();
-    priorityMapUpdateTimeStamp = 0L;
-  }
-
-  /** clear activity cache
-   */
-  private void clearActivityCache()
-  {
-    activityMap.clear();
-    activityMapUpdateTimeStamp = 0L;
-  }
-
-  /** clear project cache
-   */
-  private void clearProjectCache()
-  {
-    projectMap.clear();
-    projectMapUpdateTimeStamp = 0L;
-  }
-
-  /** clear issue cache
-   */
-  private void clearIssueCache()
-  {
-    issueMap.clear();
-    issueMapUpdateTimeStamp = 0L;
-    issueMapProjectId = ID_NONE;
-  }
-
-  /** clear time entry cache
-   */
-  private void clearTimeEntryCache()
-  {
-    for (int i = 0; i < timeEntries.size(); i++)
-    {
-      timeEntries.set(i,TIME_ENTRY_NULL);
-    }
-    timeEntriesUpdateTimeStamp = 0L;
   }
 
   //-----------------------------------------------------------------------
@@ -2015,26 +1897,32 @@ Dprintf.dprintf("required?");
       }
       catch (ParserConfigurationException exception)
       {
+Dprintf.dprintf("");
         throw new RedmineException("XML parse fail",exception);
       }
       catch (SAXException exception)
       {
+Dprintf.dprintf("");
         throw new RedmineException("XML parse fail",exception);
       }
       catch (ProtocolException exception)
       {
+Dprintf.dprintf("");
         throw new RedmineException(exception);
       }
       catch (UnknownHostException exception)
       {
+Dprintf.dprintf("");
         throw new RedmineException("Unknown host '"+serverName+"'");
       }
       catch (IOException exception)
       {
+Dprintf.dprintf("exceptio=-%s",exception);
         throw new RedmineException("Receive data fail",exception);
       }
       finally
       {
+Dprintf.dprintf("");
         if (connection != null) connection.disconnect();
       }
     }
@@ -2808,6 +2696,48 @@ Dprintf.dprintf("required?");
                    && (calendar0.get(Calendar.MONTH) == calendar1.get(Calendar.MONTH))
                    && (calendar0.get(Calendar.DATE ) == calendar1.get(Calendar.DATE ))
                   )
+              );
+  }
+
+  /** check if time entry was spent before date
+   * @param timeEntry time entry
+   * @param date date
+   * @return true if time entry was spent before date, false otherwise
+   */
+  private boolean isTimeEntryBefore(TimeEntry timeEntry, Date date)
+  {
+    Calendar calendar0 = Calendar.getInstance(); calendar0.setTime(timeEntry.spentOn);
+    Calendar calendar1 = Calendar.getInstance(); calendar1.setTime(date);
+
+    return    (   (calendar0.get(Calendar.YEAR )  < calendar1.get(Calendar.YEAR ))
+              )
+           || (   (calendar0.get(Calendar.YEAR ) == calendar1.get(Calendar.YEAR ))
+               && (calendar0.get(Calendar.MONTH)  < calendar1.get(Calendar.MONTH))
+              )
+           || (   (calendar0.get(Calendar.YEAR ) == calendar1.get(Calendar.YEAR ))
+               && (calendar0.get(Calendar.MONTH) == calendar1.get(Calendar.MONTH))
+               && (calendar0.get(Calendar.DATE )  < calendar1.get(Calendar.DATE ))
+              );
+  }
+
+    /** check if time entry was spent after date
+   * @param timeEntry time entry
+   * @param date date
+   * @return true if time entry was spent before date, false otherwise
+   */
+  private boolean isTimeEntryAfter(TimeEntry timeEntry, Date date)
+  {
+    Calendar calendar0 = Calendar.getInstance(); calendar0.setTime(timeEntry.spentOn);
+    Calendar calendar1 = Calendar.getInstance(); calendar1.setTime(date);
+
+    return    (   (calendar0.get(Calendar.YEAR )  > calendar1.get(Calendar.YEAR ))
+              )
+           || (   (calendar0.get(Calendar.YEAR ) == calendar1.get(Calendar.YEAR ))
+               && (calendar0.get(Calendar.MONTH)  > calendar1.get(Calendar.MONTH))
+              )
+           || (   (calendar0.get(Calendar.YEAR ) == calendar1.get(Calendar.YEAR ))
+               && (calendar0.get(Calendar.MONTH) == calendar1.get(Calendar.MONTH))
+               && (calendar0.get(Calendar.DATE )  > calendar1.get(Calendar.DATE ))
               );
   }
 }
