@@ -314,6 +314,7 @@ public class Timemine
   public static ColorData              COLOR_TIME_ENTRIES;
   public static ColorData              COLOR_TIME_ENTRIES_INCOMPLETE;
   public static ColorData              COLOR_TIME_ENTRIES_WEEKEND;
+  public static ColorData              COLOR_TIME_ENTRIES_VACATION;
 
   // images
   public static Image                  IMAGE_PROGRAM_ICON;
@@ -328,8 +329,9 @@ public class Timemine
   private final int                    USER_EVENT_QUIT = 0xFFFF+0;
 
   // refresh time
-  private final int                    REFRESH_TIME              =    10*60*1000;
-  private final int                    REFRESH_TIME_ENTRIES_TIME = 24*60*60*1000;
+  private final int                    REFRESH_TIME                    =    10*60; // [s]
+  private final int                    REFRESH_TODAY_TIME_ENTRIES_TIME =    10*60; // [s]
+  private final int                    REFRESH_TIME_ENTRIES_TIME       = 24*60*60; // [s]
 
   // command line options
   private static final Option[] options =
@@ -379,8 +381,10 @@ public class Timemine
   private int[]                                  activityIds;
 
   private TimerTask                              refreshTask;
+  private TimerTask                              refreshTodayTimeEntriesTask;
   private TimerTask                              refreshTimeEntriesTask;
   private Timer                                  refreshTimer;
+  private Timer                                  refreshTodayTimeEntryTimer;
   private Timer                                  refreshTimeEntryTimer;
 
   // ------------------------ native functions ----------------------------
@@ -618,6 +622,7 @@ exception.printStackTrace();
     COLOR_TIME_ENTRIES            = new ColorData(Settings.colorTimeEntries);
     COLOR_TIME_ENTRIES_INCOMPLETE = new ColorData(Settings.colorTimeEntriesIncomplete);
     COLOR_TIME_ENTRIES_WEEKEND    = new ColorData(Settings.colorTimeEntriesWeekend);
+    COLOR_TIME_ENTRIES_VACATION   = new ColorData(Settings.colorTimeEntriesVacation);
 
     // get images
     IMAGE_PROGRAM_ICON            = Widgets.loadImage(display,"program-icon.png");
@@ -1347,6 +1352,51 @@ exception.printStackTrace();
             Widgets.invoke(widgetDelete);
           }
         });
+
+        Widgets.addMenuSeparator(menu);
+
+        menuItem = Widgets.addMenuItem(menu,"Mark as vacation days");
+        menuItem.addSelectionListener(new SelectionListener()
+        {
+          public void widgetDefaultSelected(SelectionEvent selectionEvent)
+          {
+          }
+          public void widgetSelected(SelectionEvent selectionEvent)
+          {
+            TreeItem[] treeItems = widgetTimeEntryTree.getSelection();
+            if (treeItems.length > 0)
+            {
+              for (TreeItem treeItem : treeItems)
+              {
+                if (treeItem.getData() instanceof Date)
+                {
+                  addVacationDate((Date)treeItem.getData());
+                }
+              }
+            }
+          }
+        });
+        menuItem = Widgets.addMenuItem(menu,"Mark as working days");
+        menuItem.addSelectionListener(new SelectionListener()
+        {
+          public void widgetDefaultSelected(SelectionEvent selectionEvent)
+          {
+          }
+          public void widgetSelected(SelectionEvent selectionEvent)
+          {
+            TreeItem[] treeItems = widgetTimeEntryTree.getSelection();
+            if (treeItems.length > 0)
+            {
+              for (TreeItem treeItem : treeItems)
+              {
+                if (treeItem.getData() instanceof Date)
+                {
+                  removeVacationDate((Date)treeItem.getData());
+                }
+              }
+            }
+          }
+        });
       }
       widgetTimeEntryTree.setMenu(menu);
 
@@ -1391,6 +1441,7 @@ exception.printStackTrace();
               calendar.add(Calendar.DAY_OF_MONTH,-index);
               Date     date      = calendar.getTime();
               int      dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
+Dprintf.dprintf("update treeItem=%s index=%d date=%s",treeItem,index,date);
 
               double hoursSum = redmine.getTimeEntryHoursSum(date);
 
@@ -1401,6 +1452,11 @@ exception.printStackTrace();
               {
                 treeItem.setForeground(COLOR_TIME_ENTRIES_WEEKEND.foreground);
                 treeItem.setBackground(COLOR_TIME_ENTRIES_WEEKEND.background);
+              }
+              else if (isVacationDate(date))
+              {
+                treeItem.setForeground(COLOR_TIME_ENTRIES_VACATION.foreground);
+                treeItem.setBackground(COLOR_TIME_ENTRIES_VACATION.background);
               }
               else if (hoursSum < Settings.requiredHoursPerDay)
               {
@@ -1999,7 +2055,7 @@ Dprintf.dprintf("");
     createTrayItem();
     createEventHandlers();
 
-    // start timer to refresh today time entry table/time entry table
+    // start timer to refresh data
     refreshTask = new TimerTask()
     {
       public void run()
@@ -2010,10 +2066,11 @@ Dprintf.dprintf("");
         }
         try
         {
-          // projects, activities, number of time entries from Redmine server
-          final Redmine.Project[]  projects       = redmine.getProjectArray(true);
-          final Redmine.Activity[] activities     = redmine.getActivityArray();
-          final int                timeEntryDays  = (int)((System.currentTimeMillis()-redmine.getTimeEntryStartDate().getTime())/(24*60*60*1000));
+          // get projects, activities
+          redmine.clearProjectCache();
+          redmine.clearActivityCache();
+          final Redmine.Project[]  projects   = redmine.getProjectArray();
+          final Redmine.Activity[] activities = redmine.getActivityArray();
 
           // sort projects, activities
           Arrays.sort(projects,new Comparator<Redmine.Project>()
@@ -2061,22 +2118,64 @@ Dprintf.dprintf("");
                 if (activities[i].isDefault) widgetActivities.select(i);
                 activityIds[i] = activities[i].id;
               }
-
-              // set total number of time entries in all-table
-              widgetTimeEntryTree.setItemCount(timeEntryDays);
             }
           });
         }
         catch (RedmineException exception)
         {
-          Dialogs.error(shell,"Cannot get data from Redmine server (error: "+exception.getMessage()+")");
-          return;
+          // ignored
         }
       }
     };
-    refreshTask.run();
+    refreshTimer = new Timer();
+    refreshTimer.schedule(refreshTask,0L,REFRESH_TIME*1000L);
 
-    // start timer to refresh today time entry table/time entry table
+    refreshTodayTimeEntriesTask = new TimerTask()
+    {
+      public void run()
+      {
+        if (Settings.debugFlag)
+        {
+          System.err.println("DEBUG: Refresh data");
+        }
+        try
+        {
+          // get today time entries
+          final Redmine.TimeEntry[] timeEntries = redmine.getTimeEntryArray(new Date());
+Dprintf.dprintf("timeEntries=%d",timeEntries.length);
+
+          // refresh today time entry table
+          display.syncExec(new Runnable()
+          {
+            public void run()
+            {
+              widgetTodayTimeEntryTable.removeAll();
+              for (Redmine.TimeEntry timeEntry : timeEntries)
+              {
+                Redmine.Activity activity = redmine.getActivity(timeEntry.activityId);
+                Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
+                Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
+                Widgets.addTableEntry(widgetTodayTimeEntryTable,
+                                      timeEntry,
+                                      formatHours(timeEntry.hours),
+                                      (activity != null) ? activity.name : "",
+                                      (project != null) ? project.name : "",
+                                      (issue != null) ? issue.subject : "",
+                                      timeEntry.comments
+                                     );
+              }
+            }
+          });
+        }
+        catch (RedmineException exception)
+        {
+          // ignored
+        }
+      }
+    };
+    refreshTodayTimeEntryTimer = new Timer();
+    refreshTodayTimeEntryTimer.schedule(refreshTodayTimeEntriesTask,0L,REFRESH_TODAY_TIME_ENTRIES_TIME*1000L);
+
     refreshTimeEntriesTask = new TimerTask()
     {
       public void run()
@@ -2087,8 +2186,9 @@ Dprintf.dprintf("");
         }
         try
         {
-          // get today time entries, number ot time entries
-          final Redmine.TimeEntry[] todayTimeEntries = redmine.getTimeEntryArray(new Date(),true);
+          // get time entries, number ot time entries
+          redmine.clearTimeEntryCache();
+          final Redmine.TimeEntry[] todayTimeEntries = redmine.getTimeEntryArray(new Date());
           final int                 timeEntryDays    = (int)((System.currentTimeMillis()-redmine.getTimeEntryStartDate().getTime())/(24*60*60*1000));
 
           // refreh today time entry table
@@ -2131,21 +2231,12 @@ Dprintf.dprintf("");
         }
         catch (RedmineException exception)
         {
-          Dialogs.error(shell,"Cannot get data from Redmine server (error: "+exception.getMessage()+")");
-          return;
+          // ignored
         }
       }
     };
-    refreshTimeEntriesTask.run();
-
-    Calendar calendar = Calendar.getInstance();
-    calendar.set(Calendar.HOUR,0);
-    calendar.set(Calendar.MINUTE,5);
-    calendar.set(Calendar.SECOND,0);
-    refreshTimer = new Timer();
-    refreshTimer.schedule(refreshTask,calendar.getTime(),REFRESH_TIME);
     refreshTimeEntryTimer = new Timer();
-    refreshTimeEntryTimer.schedule(refreshTimeEntriesTask,calendar.getTime(),REFRESH_TIME_ENTRIES_TIME);
+    refreshTimeEntryTimer.schedule(refreshTimeEntriesTask,0L,REFRESH_TIME_ENTRIES_TIME*1000L);
   }
 
   /** done all
@@ -2154,7 +2245,7 @@ Dprintf.dprintf("");
   {
     // shutdown running background tasks
     refreshTimeEntryTimer.cancel();
-    refreshTimer.cancel();
+    refreshTodayTimeEntryTimer.cancel();
   }
 
   /** run application
@@ -2392,18 +2483,27 @@ Dprintf.dprintf("");
     return String.format("%02d:%02d",(int)Math.floor(hours),(((int)Math.floor(hours*100.0)%100)*60)/100);
   }
 
+  /** check if days are equal
+   * @param date0,date1 dates to check
+   * @return true iff days are equal
+   */
+  private boolean isSameDay(Date date0, Date date1)
+  {
+    Calendar calendar0 = Calendar.getInstance(); calendar0.setTime(date0);
+    Calendar calendar1 = Calendar.getInstance(); calendar1.setTime(date1);
+
+    return    (calendar0.get(Calendar.YEAR ) == calendar1.get(Calendar.YEAR ))
+           && (calendar0.get(Calendar.MONTH) == calendar1.get(Calendar.MONTH))
+           && (calendar0.get(Calendar.DATE ) == calendar1.get(Calendar.DATE ));
+  }
+
   /** check if date is today
    * @param date date to check
    * @return true iff date is today
    */
   private boolean isToday(Date date)
   {
-    Calendar todayCalendar = Calendar.getInstance();
-    Calendar calendar      = Calendar.getInstance(); calendar.setTime(date);
-
-    return    (calendar.get(Calendar.YEAR ) == todayCalendar.get(Calendar.YEAR ))
-           && (calendar.get(Calendar.MONTH) == todayCalendar.get(Calendar.MONTH))
-           && (calendar.get(Calendar.DATE ) == todayCalendar.get(Calendar.DATE ));
+    return isSameDay(date,new Date());
   }
 
   /** add time entry to table
@@ -3032,8 +3132,41 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
   private void deleteTimeEntry(Redmine.TimeEntry timeEntry)
     throws RedmineException
   {
- Dprintf.dprintf("");
     redmine.delete(timeEntry);
+  }
+
+  /** add vacation date
+   * @param date date
+   */
+  private void addVacationDate(Date date)
+  {
+    Settings.VacationDate vacationDate = new Settings.VacationDate(date);
+
+    if (!Settings.vacationDateSet.contains(vacationDate))
+    {
+      Settings.vacationDateSet.add(vacationDate);
+    }
+  }
+
+  /** remove vacation date
+   * @param date date
+   */
+  private void removeVacationDate(Date date)
+  {
+    Settings.VacationDate vacationDate = new Settings.VacationDate(date);
+
+    if (Settings.vacationDateSet.contains(vacationDate))
+    {
+      Settings.vacationDateSet.remove(vacationDate);
+    }
+  }
+
+  /** check if date is vacation date
+   * @param date date
+   */
+  private boolean isVacationDate(Date date)
+  {
+    return Settings.vacationDateSet.contains(new Settings.VacationDate(date));
   }
 
   /** edit preferences
