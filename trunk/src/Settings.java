@@ -757,7 +757,6 @@ Dprintf.dprintf("field.getType()=%s",type);
                             // convert to value
                             Object value = settingValueAdapter.toValue(string);
                             HashSet<Object> hashSet = (HashSet<Object>)field.get(null);
-Dprintf.dprintf("%s: %s",value,hashSet.contains(value));
                             hashSet.add(value);
                           }
                           else if (type == Integer.class)
