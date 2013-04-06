@@ -1051,7 +1051,7 @@ exception.printStackTrace();
         Widgets.layout(composite,1,1,TableLayoutData.WE,0,2);
         {
           widgetIssueIds = Widgets.newSelect(composite,SWT.RIGHT);
-          Widgets.layout(widgetIssueIds,0,0,TableLayoutData.W);
+          Widgets.layout(widgetIssueIds,0,0,TableLayoutData.W,0,0,0,0,60,SWT.DEFAULT);
 
           widgetIssues = Widgets.newSelect(composite);
           Widgets.layout(widgetIssues,0,1,TableLayoutData.WE);
@@ -2781,7 +2781,7 @@ Dprintf.dprintf("");
       Widgets.layout(subComposite,1,1,TableLayoutData.WE);
       {
         widgetIssueIds = Widgets.newSelect(subComposite);
-        Widgets.layout(widgetIssueIds,0,0,TableLayoutData.W);
+        Widgets.layout(widgetIssueIds,0,0,TableLayoutData.W,0,0,0,0,60,SWT.DEFAULT);
 
         widgetIssues = Widgets.newSelect(subComposite);
         Widgets.layout(widgetIssues,0,1,TableLayoutData.WE);
