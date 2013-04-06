@@ -172,9 +172,7 @@ class TimeEntryComparator implements Comparator<Redmine.TimeEntry>
       switch (sortMode)
       {
         case SPENT_ON:
-          Calendar calendar0 = Calendar.getInstance(); calendar0.setTime(timeEntry0.spentOn);
-          Calendar calendar1 = Calendar.getInstance(); calendar1.setTime(timeEntry1.spentOn);
-          return calendar0.compareTo(calendar1);
+          return timeEntry0.spentOn.compareTo(timeEntry1.spentOn);
         case HOURS:
           if      (timeEntry0.hours < timeEntry1.hours) return -1;
           else if (timeEntry0.hours > timeEntry1.hours) return  1;
@@ -312,6 +310,7 @@ public class Timemine
   public static Color                  COLOR_BACKGROUND;
   public static ColorData              COLOR_TODAY_TIME_ENTRIES;
   public static ColorData              COLOR_TIME_ENTRIES;
+  public static ColorData              COLOR_TIME_ENTRIES_UPDATE;
   public static ColorData              COLOR_TIME_ENTRIES_INCOMPLETE;
   public static ColorData              COLOR_TIME_ENTRIES_WEEKEND;
   public static ColorData              COLOR_TIME_ENTRIES_VACATION;
@@ -329,9 +328,7 @@ public class Timemine
   private final int                    USER_EVENT_QUIT = 0xFFFF+0;
 
   // refresh time
-  private final int                    REFRESH_TIME                    =    10*60; // [s]
-  private final int                    REFRESH_TODAY_TIME_ENTRIES_TIME =    10*60; // [s]
-  private final int                    REFRESH_TIME_ENTRIES_TIME       = 24*60*60; // [s]
+  private final int                    REFRESH_TIME  = 10*60; // [s]
 
   // command line options
   private static final Option[] options =
@@ -363,7 +360,9 @@ public class Timemine
 
   private Table                                  widgetTodayTimeEntryTable;
   private Combo                                  widgetProjects;
+  private Combo                                  widgetIssueIds;
   private Combo                                  widgetIssues;
+  private Label                                  widgetIssueStatus;
   private Spinner                                widgetSpentHourFraction;
   private Spinner                                widgetSpentMinuteFraction;
   private Combo                                  widgetActivities;
@@ -377,7 +376,7 @@ public class Timemine
   private Redmine                                redmine;
   private SoftHashMap<Integer,Redmine.TimeEntry> redmineTodayTimeEntryMap;
   private int[]                                  projectIds;
-  private int[]                                  issueIds;
+  private int[]                                  issueIds0,issueIds1;
   private int[]                                  activityIds;
 
   private TimerTask                              refreshTask;
@@ -620,6 +619,7 @@ exception.printStackTrace();
     COLOR_BACKGROUND              = display.getSystemColor(SWT.COLOR_WIDGET_BACKGROUND);
     COLOR_TODAY_TIME_ENTRIES      = new ColorData(Settings.colorTodayTimeEntries);
     COLOR_TIME_ENTRIES            = new ColorData(Settings.colorTimeEntries);
+    COLOR_TIME_ENTRIES_UPDATE     = new ColorData(Settings.colorTimeEntriesUpdate);
     COLOR_TIME_ENTRIES_INCOMPLETE = new ColorData(Settings.colorTimeEntriesIncomplete);
     COLOR_TIME_ENTRIES_WEEKEND    = new ColorData(Settings.colorTimeEntriesWeekend);
     COLOR_TIME_ENTRIES_VACATION   = new ColorData(Settings.colorTimeEntriesVacation);
@@ -855,7 +855,7 @@ exception.printStackTrace();
           {
             Redmine.TimeEntry timeEntry = (Redmine.TimeEntry)tableItems[0].getData();
 
-            Date prevSpentOn = timeEntry.spentOn;
+            Redmine.SpentOn prevSpentOn = timeEntry.spentOn;
             if (editTimeEntry(timeEntry,"Edit time entry","Save"))
             {
               try
@@ -864,7 +864,7 @@ exception.printStackTrace();
                 redmine.update(timeEntry);
 
                 // refresh/remove today time entry table entry
-                if (isToday(timeEntry.spentOn))
+                if (timeEntry.spentOn.isToday())
                 {
                   // refresh
                   refreshTableItem(widgetTodayTimeEntryTable,timeEntry);
@@ -945,7 +945,12 @@ exception.printStackTrace();
 
           if (tableItems.length > 0)
           {
+            int index;
+
             Redmine.TimeEntry timeEntry = (Redmine.TimeEntry)tableItems[0].getData();
+            Redmine.Activity  activity  = redmine.getActivity(timeEntry.activityId);
+            Redmine.Project   project   = redmine.getProject(timeEntry.projectId);
+            Redmine.Issue     issue     = redmine.getIssue(timeEntry.issueId);
 
             // select matching project
             int projectIndex = getIndex(projectIds,timeEntry.projectId);
@@ -966,6 +971,27 @@ exception.printStackTrace();
               }
 
               // show sorted issues
+              widgetIssueIds.removeAll();
+              Arrays.sort(issues,new Comparator<Redmine.Issue>()
+              {
+                public int compare(Redmine.Issue issue0, Redmine.Issue issue1)
+                {
+                  assert issue0 != null;
+                  assert issue1 != null;
+
+                  if      (issue0.id < issue1.id) return -1;
+                  else if (issue0.id > issue1.id) return  1;
+                  else                            return  0;
+                }
+              });
+              issueIds0 = new int[issues.length];
+              for (int i = 0; i < issues.length; i++)
+              {
+                widgetIssueIds.add(Integer.toString(issues[i].id));
+                issueIds0[i] = issues[i].id;
+              }
+
+              widgetIssues.removeAll();
               Arrays.sort(issues,new Comparator<Redmine.Issue>()
               {
                 public int compare(Redmine.Issue issue0, Redmine.Issue issue1)
@@ -976,28 +1002,24 @@ exception.printStackTrace();
                   return issue0.subject.compareTo(issue1.subject);
                 }
               });
-              widgetIssues.removeAll();
-              issueIds = new int[issues.length];
+              issueIds1 = new int[issues.length];
               for (int i = 0; i < issues.length; i++)
               {
                 widgetIssues.add(issues[i].subject);
-                issueIds[i] = issues[i].id;
+                issueIds1[i] = issues[i].id;
               }
             }
 
             // select matching issue
-            int issueIndex = getIndex(issueIds,timeEntry.issueId);
-            if (issueIndex >= 0)
-            {
-              widgetIssues.select(issueIndex);
-            }
+            index = getIndex(issueIds0,timeEntry.issueId);
+            if (index >= 0) widgetIssueIds.select(index);
+            index = getIndex(issueIds1,timeEntry.issueId);
+            if (index >= 0) widgetIssues.select(index);
+            widgetIssueStatus.setText((issue != null) ? redmine.getStatusName(issue.statusId,"") : "");
 
             // select matching activity
-            int activityIndex = getIndex(activityIds,timeEntry.activityId);
-            if (activityIndex >= 0)
-            {
-              widgetActivities.select(activityIndex);
-            }
+            index = getIndex(activityIds,timeEntry.activityId);
+            if (index >= 0) widgetActivities.select(index);
 
             // set spent hours, minutes fraction
             widgetSpentHourFraction.setSelection(timeEntry.getHourFraction());
@@ -1024,8 +1046,19 @@ exception.printStackTrace();
         label = Widgets.newLabel(group,"Issue:",SWT.NONE,ACCELERATOR_ISSUE);
         Widgets.layout(label,1,0,TableLayoutData.W);
 
-        widgetIssues = Widgets.newSelect(group);
-        Widgets.layout(widgetIssues,1,1,TableLayoutData.WE,0,2);
+        composite = Widgets.newComposite(group);
+        composite.setLayout(new TableLayout(0.0,new double[]{0.0,1.0}));
+        Widgets.layout(composite,1,1,TableLayoutData.WE,0,2);
+        {
+          widgetIssueIds = Widgets.newSelect(composite,SWT.RIGHT);
+          Widgets.layout(widgetIssueIds,0,0,TableLayoutData.W);
+
+          widgetIssues = Widgets.newSelect(composite);
+          Widgets.layout(widgetIssues,0,1,TableLayoutData.WE);
+
+          widgetIssueStatus = Widgets.newLabel(composite);
+          Widgets.layout(widgetIssueStatus,0,2,TableLayoutData.E,0,0,0,0,60,SWT.DEFAULT);
+        }
 
         label = Widgets.newLabel(group,"Spent:",SWT.NONE,ACCELERATOR_SPENT);
         Widgets.layout(label,2,0,TableLayoutData.W);
@@ -1118,6 +1151,27 @@ exception.printStackTrace();
             Redmine.Issue[] issues = redmine.getIssueArray(projectIds[index]);
 
             // sorted issues
+            widgetIssueIds.removeAll();
+            Arrays.sort(issues,new Comparator<Redmine.Issue>()
+            {
+              public int compare(Redmine.Issue issue0, Redmine.Issue issue1)
+              {
+                assert issue0 != null;
+                assert issue1 != null;
+
+                if      (issue0.id < issue1.id) return -1;
+                else if (issue0.id > issue1.id) return  1;
+                else                            return  0;
+              }
+            });
+            issueIds0 = new int[issues.length];
+            for (int i = 0; i < issues.length; i++)
+            {
+              widgetIssueIds.add(Integer.toString(issues[i].id));
+              issueIds0[i] = issues[i].id;
+            }
+
+            widgetIssues.removeAll();
             Arrays.sort(issues,new Comparator<Redmine.Issue>()
             {
               public int compare(Redmine.Issue issue0, Redmine.Issue issue1)
@@ -1128,21 +1182,59 @@ exception.printStackTrace();
                 return issue0.subject.compareTo(issue1.subject);
               }
             });
-            widgetIssues.removeAll();
-            issueIds = new int[issues.length];
+            issueIds1 = new int[issues.length];
             for (int i = 0; i < issues.length; i++)
             {
               widgetIssues.add(issues[i].subject);
-              issueIds[i] = issues[i].id;
+              issueIds1[i] = issues[i].id;
             }
 
             // select first issue
-            widgetIssues.select(0);
+            if (issueIds1.length > 0)
+            {
+              widgetIssueIds.select(getIndex(issueIds0,issueIds1[0]));
+              widgetIssues.select(0);
+              widgetIssueStatus.setText(redmine.getStatusName(issues[0].statusId,""));
+            }
           }
           catch (RedmineException exception)
           {
             Dialogs.error(shell,"Cannot get data from Redmine server (error: "+exception.getMessage()+")");
             return;
+          }
+        }
+      });
+      widgetIssueIds.addSelectionListener(new SelectionListener()
+      {
+        public void widgetDefaultSelected(SelectionEvent selectionEvent)
+        {
+        }
+        public void widgetSelected(SelectionEvent selectionEvent)
+        {
+          Combo widget = (Combo)selectionEvent.widget;
+
+          int index = widget.getSelectionIndex();
+          if ((index >= 0) && (index < issueIds0.length))
+          {
+            index = getIndex(issueIds1,issueIds0[index]);
+            if (index >= 0) widgetIssues.select(index);
+          }
+        }
+      });
+      widgetIssues.addSelectionListener(new SelectionListener()
+      {
+        public void widgetDefaultSelected(SelectionEvent selectionEvent)
+        {
+        }
+        public void widgetSelected(SelectionEvent selectionEvent)
+        {
+          Combo widget = (Combo)selectionEvent.widget;
+
+          int index = widget.getSelectionIndex();
+          if ((index >= 0) && (index < issueIds1.length))
+          {
+            index = getIndex(issueIds0,issueIds1[index]);
+            if (index >= 0) widgetIssueIds.select(index);
           }
         }
       });
@@ -1210,7 +1302,7 @@ exception.printStackTrace();
             Widgets.setFocus(widgetProjects);
             return;
           }
-          if ((issueIndex < 0) || (issueIndex >= issueIds.length ))
+          if ((issueIndex < 0) || (issueIndex >= issueIds1.length ))
           {
             Dialogs.error(shell,"Please select an issue for the new time entry.");
             Widgets.setFocus(widgetIssues);
@@ -1236,7 +1328,7 @@ exception.printStackTrace();
           }
 
           Redmine.TimeEntry timeEntry = redmine.new TimeEntry(projectIds[projectIndex],
-                                                              issueIds[issueIndex],
+                                                              issueIds1[issueIndex],
                                                               activityIds[activityIndex],
                                                               hours,
                                                               comments
@@ -1302,7 +1394,7 @@ exception.printStackTrace();
       display.addFilter(SWT.KeyDown,keyListener);
 
       // set next focus
-      Widgets.setNextFocus(widgetProjects,widgetIssues,widgetSpentHourFraction,widgetSpentMinuteFraction,widgetActivities,widgetComments,widgetAdd);
+      Widgets.setNextFocus(widgetProjects,widgetIssueIds,widgetIssues,widgetSpentHourFraction,widgetSpentMinuteFraction,widgetActivities,widgetComments,widgetAdd);
     }
     widgetTabToday.addListener(SWT.Show,new Listener()
     {
@@ -1364,13 +1456,20 @@ exception.printStackTrace();
           public void widgetSelected(SelectionEvent selectionEvent)
           {
             TreeItem[] treeItems = widgetTimeEntryTree.getSelection();
+
             if (treeItems.length > 0)
             {
               for (TreeItem treeItem : treeItems)
               {
-                if (treeItem.getData() instanceof Date)
+                if (treeItem.getData() instanceof Redmine.SpentOn)
                 {
-                  addVacationDate((Date)treeItem.getData());
+                  // add vacation day
+                  addVacationDate((Redmine.SpentOn)treeItem.getData());
+
+                  // refresh tree item
+                  Event treeEvent = new Event();
+                  treeEvent.item = treeItem;
+                  widgetTimeEntryTree.notifyListeners(SWT.SetData,treeEvent);
                 }
               }
             }
@@ -1385,13 +1484,20 @@ exception.printStackTrace();
           public void widgetSelected(SelectionEvent selectionEvent)
           {
             TreeItem[] treeItems = widgetTimeEntryTree.getSelection();
+
             if (treeItems.length > 0)
             {
               for (TreeItem treeItem : treeItems)
               {
-                if (treeItem.getData() instanceof Date)
+                if (treeItem.getData() instanceof Redmine.SpentOn)
                 {
-                  removeVacationDate((Date)treeItem.getData());
+                  // remove vacation day
+                  removeVacationDate((Redmine.SpentOn)treeItem.getData());
+
+                  // refresh tree item
+                  Event treeEvent = new Event();
+                  treeEvent.item = treeItem;
+                  widgetTimeEntryTree.notifyListeners(SWT.SetData,treeEvent);
                 }
               }
             }
@@ -1410,12 +1516,12 @@ exception.printStackTrace();
         }
         public void treeExpanded(TreeEvent treeEvent)
         {
-          TreeItem treeItem = (TreeItem)treeEvent.item;
-          Date     date     = (Date)treeItem.getData();
+          TreeItem        treeItem = (TreeItem)treeEvent.item;
+          Redmine.SpentOn spentOn  = (Redmine.SpentOn)treeItem.getData();
 
           try
           {
-            setTreeEntries(treeItem,redmine.getTimeEntryArray(date));
+            setTreeEntries(treeItem,redmine.getTimeEntryArray(spentOn));
           }
           catch (RedmineException exception)
           {
@@ -1437,26 +1543,29 @@ exception.printStackTrace();
 //Dprintf.dprintf("update treeItem=%s index=%d",treeItem,index);
             if (index >= 0)
             {
-              Calendar calendar = Calendar.getInstance();
-              calendar.add(Calendar.DAY_OF_MONTH,-index);
-              Date     date      = calendar.getTime();
-              int      dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
-Dprintf.dprintf("update treeItem=%s index=%d date=%s",treeItem,index,date);
+              Redmine.SpentOn spentOn        = redmine.new SpentOn(-index);
+              int             spentOnWeekday = spentOn.getWeekday();
 
-              double hoursSum = redmine.getTimeEntryHoursSum(date);
+              double hoursSum = redmine.getTimeEntryHoursSum(spentOn);
+//Dprintf.dprintf("update treeItem=%s index=%d spentOn=%s hoursSum=%f",treeItem,index,spentOn,hoursSum);
 
-              treeItem.setData(date);
-              treeItem.setText(0,DATE_FORMAT.format(date));
-              treeItem.setText(1,formatHours(hoursSum));
-              if      ((dayOfWeek == Calendar.SATURDAY) || (dayOfWeek == Calendar.SUNDAY))
+              treeItem.setData(spentOn);
+              treeItem.setText(0,spentOn.toString(DATE_FORMAT));
+              treeItem.setText(1,(hoursSum != Redmine.HOURS_UPDATE) ? formatHours(hoursSum) : "");
+              if      ((spentOnWeekday == Calendar.SATURDAY) || (spentOnWeekday == Calendar.SUNDAY))
               {
                 treeItem.setForeground(COLOR_TIME_ENTRIES_WEEKEND.foreground);
                 treeItem.setBackground(COLOR_TIME_ENTRIES_WEEKEND.background);
               }
-              else if (isVacationDate(date))
+              else if (isVacationDate(spentOn))
               {
                 treeItem.setForeground(COLOR_TIME_ENTRIES_VACATION.foreground);
                 treeItem.setBackground(COLOR_TIME_ENTRIES_VACATION.background);
+              }
+              else if (hoursSum == Redmine.HOURS_UPDATE)
+              {
+                treeItem.setForeground(COLOR_TIME_ENTRIES_UPDATE.foreground);
+                treeItem.setBackground(COLOR_TIME_ENTRIES_UPDATE.background);
               }
               else if (hoursSum < Settings.requiredHoursPerDay)
               {
@@ -1470,7 +1579,7 @@ Dprintf.dprintf("update treeItem=%s index=%d date=%s",treeItem,index,date);
               }
               if (treeItem.getExpanded())
               {
-                setTreeEntries(treeItem,redmine.getTimeEntryArray(date));
+                setTreeEntries(treeItem,redmine.getTimeEntryArray(spentOn));
               }
               else
               {
@@ -1496,7 +1605,7 @@ Dprintf.dprintf("update treeItem=%s index=%d date=%s",treeItem,index,date);
 
           if (treeItem != null)
           {
-            if      (treeItem.getData() instanceof Date)
+            if      (treeItem.getData() instanceof Redmine.SpentOn)
             {
               /* On Linux a double-click does not open the entry by default. Send a
                  event to initiate this behavior on Linux.
@@ -1519,7 +1628,7 @@ Dprintf.dprintf("update treeItem=%s index=%d date=%s",treeItem,index,date);
             {
               Redmine.TimeEntry timeEntry = (Redmine.TimeEntry)treeItem.getData();
 
-              Date prevSpentOn = timeEntry.spentOn;
+              Redmine.SpentOn prevSpentOn = timeEntry.spentOn;
               if (editTimeEntry(timeEntry,"Edit time entry","Save"))
               {
                 try
@@ -1532,9 +1641,9 @@ Dprintf.dprintf("update treeItem=%s index=%d date=%s",treeItem,index,date);
                   refreshTreeItem(widget,timeEntry.spentOn);
 
                   // refresh/add/remove today time entry table entry
-                  if (isToday(timeEntry.spentOn))
+                  if (timeEntry.spentOn.isToday())
                   {
-                    if (isToday(prevSpentOn))
+                    if (prevSpentOn.isToday())
                     {
                       // refresh
                       refreshTableItem(widgetTodayTimeEntryTable,timeEntry);
@@ -1626,14 +1735,7 @@ Dprintf.dprintf("update treeItem=%s index=%d date=%s",treeItem,index,date);
                     widget.notifyListeners(SWT.SetData,treeEvent);
 
                     // update today time entry table entry
-                    Widgets.updateTableEntry(widgetTodayTimeEntryTable,
-                                             timeEntry,
-                                             formatHours(timeEntry.hours),
-                                             (activity != null) ? activity.name : "",
-                                             (project != null) ? project.name : "",
-                                             (issue != null) ? issue.subject : "",
-                                             timeEntry.comments
-                                            );
+                    refreshTableItem(widgetTodayTimeEntryTable,timeEntry);
                   }
                   catch (RedmineException exception)
                   {
@@ -1649,27 +1751,27 @@ Dprintf.dprintf("update treeItem=%s index=%d date=%s",treeItem,index,date);
                   )
           {
             // get date of selected day or date of today
-            Date date;
+            Redmine.SpentOn spentOn;
 
             TreeItem[] treeItems = widgetTimeEntryTree.getSelection();
             if (treeItems.length > 0)
             {
               TreeItem treeItem = treeItems[0];
-              while (!(treeItem.getData() instanceof Date))
+              while (!(treeItem.getData() instanceof Redmine.SpentOn))
               {
                 treeItem = treeItem.getParentItem();
               }
-              date = (Date)(((Date)treeItem.getData()).clone());
+              spentOn = (Redmine.SpentOn)(((Redmine.SpentOn)treeItem.getData()).clone());
             }
             else
             {
-              date = new Date();
+              spentOn = redmine.today();
             }
 
             try
             {
               // add new time entry
-              addTimeEntry(date);
+              addTimeEntry(spentOn);
             }
             catch (RedmineException exception)
             {
@@ -1724,28 +1826,28 @@ Dprintf.dprintf("update treeItem=%s index=%d date=%s",treeItem,index,date);
           }
           public void widgetSelected(SelectionEvent selectionEvent)
           {
-            // get date of selected day or date of today
-            Date date;
+            // get spent-on of selected day or date of today
+            Redmine.SpentOn spentOn;
 
             TreeItem[] treeItems = widgetTimeEntryTree.getSelection();
             if (treeItems.length > 0)
             {
               TreeItem treeItem = treeItems[0];
-              while (!(treeItem.getData() instanceof Date))
+              while (!(treeItem.getData() instanceof Redmine.SpentOn))
               {
                 treeItem = treeItem.getParentItem();
               }
-              date = (Date)(((Date)treeItem.getData()).clone());
+              spentOn = (Redmine.SpentOn)(((Redmine.SpentOn)treeItem.getData()).clone());
             }
             else
             {
-              date = new Date();
+              spentOn = redmine.today();
             }
 
             try
             {
               // add new time entry
-              addTimeEntry(date);
+              addTimeEntry(spentOn);
             }
             catch (RedmineException exception)
             {
@@ -1774,9 +1876,9 @@ Dprintf.dprintf("");
               {
                 for (TreeItem treeItem : treeItems)
                 {
-                  if       (treeItem.getData() instanceof Date)
+                  if       (treeItem.getData() instanceof Redmine.SpentOn)
                   {
-                    for (Redmine.TimeEntry timeEntry : redmine.getTimeEntryArray((Date)treeItem.getData()))
+                    for (Redmine.TimeEntry timeEntry : redmine.getTimeEntryArray((Redmine.SpentOn)treeItem.getData()))
                     {
                       timeEntryList.add(timeEntry);
                     }
@@ -2066,9 +2168,10 @@ Dprintf.dprintf("");
         }
         try
         {
+          // clear caches
+          redmine.clearCaches();
+
           // get projects, activities
-          redmine.clearProjectCache();
-          redmine.clearActivityCache();
           final Redmine.Project[]  projects   = redmine.getProjectArray();
           final Redmine.Activity[] activities = redmine.getActivityArray();
 
@@ -2083,7 +2186,6 @@ Dprintf.dprintf("");
               return project0.name.compareTo(project1.name);
             }
           });
-
           Arrays.sort(activities,new Comparator<Redmine.Activity>()
           {
             public int compare(Redmine.Activity activity0, Redmine.Activity activity1)
@@ -2141,28 +2243,37 @@ Dprintf.dprintf("");
         try
         {
           // get today time entries
-          final Redmine.TimeEntry[] timeEntries = redmine.getTimeEntryArray(new Date());
-Dprintf.dprintf("timeEntries=%d",timeEntries.length);
+          final SoftHashMap<Integer,Redmine.TimeEntry> timeEntryMap = redmine.getTimeEntries(redmine.today());
+//Dprintf.dprintf("timeEntryMap.size()=%d",timeEntryMap.size());
 
           // refresh today time entry table
           display.syncExec(new Runnable()
           {
             public void run()
             {
-              widgetTodayTimeEntryTable.removeAll();
-              for (Redmine.TimeEntry timeEntry : timeEntries)
+              // update entries, remove not existing entries
+              TableItem[] tableItems = widgetTodayTimeEntryTable.getItems();
+              for (TableItem tableItem : tableItems)
               {
-                Redmine.Activity activity = redmine.getActivity(timeEntry.activityId);
-                Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
-                Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
-                Widgets.addTableEntry(widgetTodayTimeEntryTable,
-                                      timeEntry,
-                                      formatHours(timeEntry.hours),
-                                      (activity != null) ? activity.name : "",
-                                      (project != null) ? project.name : "",
-                                      (issue != null) ? issue.subject : "",
-                                      timeEntry.comments
-                                     );
+                Redmine.TimeEntry timeEntry = (Redmine.TimeEntry)tableItem.getData();
+
+                if (timeEntryMap.containsKey(timeEntry.id))
+                {
+                  refreshTableItem(widgetTodayTimeEntryTable,timeEntry);
+                  timeEntryMap.remove(timeEntry.id);
+                }
+                else
+                {
+                  removeTableItem(widgetTodayTimeEntryTable,timeEntry);
+                }
+              }
+
+              // update existing entries
+
+              // add new entries
+              for (Redmine.TimeEntry timeEntry : timeEntryMap.values())
+              {
+                addTableItem(widgetTodayTimeEntryTable,timeEntry);
               }
             }
           });
@@ -2174,7 +2285,7 @@ Dprintf.dprintf("timeEntries=%d",timeEntries.length);
       }
     };
     refreshTodayTimeEntryTimer = new Timer();
-    refreshTodayTimeEntryTimer.schedule(refreshTodayTimeEntriesTask,0L,REFRESH_TODAY_TIME_ENTRIES_TIME*1000L);
+    refreshTodayTimeEntryTimer.schedule(refreshTodayTimeEntriesTask,0L,10*1000L);
 
     refreshTimeEntriesTask = new TimerTask()
     {
@@ -2186,37 +2297,18 @@ Dprintf.dprintf("timeEntries=%d",timeEntries.length);
         }
         try
         {
-          // get time entries, number ot time entries
-          redmine.clearTimeEntryCache();
-          final Redmine.TimeEntry[] todayTimeEntries = redmine.getTimeEntryArray(new Date());
-          final int                 timeEntryDays    = (int)((System.currentTimeMillis()-redmine.getTimeEntryStartDate().getTime())/(24*60*60*1000));
+          // get number ot time entry days
+          final int timeEntryDays = (int)((System.currentTimeMillis()-redmine.getTimeEntryStartDate().getTime())/(24*60*60*1000));
 
           // refreh today time entry table
           display.syncExec(new Runnable()
           {
             public void run()
             {
-              // refresh today time entry table
-              widgetTodayTimeEntryTable.removeAll();
-              for (Redmine.TimeEntry timeEntry : todayTimeEntries)
-              {
-                Redmine.Activity activity = redmine.getActivity(timeEntry.activityId);
-                Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
-                Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
-                Widgets.addTableEntry(widgetTodayTimeEntryTable,
-                                      timeEntry,
-                                      formatHours(timeEntry.hours),
-                                      (activity != null) ? activity.name : "",
-                                      (project != null) ? project.name : "",
-                                      (issue != null) ? issue.subject : "",
-                                      timeEntry.comments
-                                     );
-              }
-
               // update all tree items
               for (TreeItem treeItem : widgetTimeEntryTree.getItems())
               {
-                if (treeItem.getData() instanceof Date)
+                if (treeItem.getData() instanceof Redmine.SpentOn)
                 {
                   Event treeEvent = new Event();
                   treeEvent.item = treeItem;
@@ -2236,7 +2328,7 @@ Dprintf.dprintf("timeEntries=%d",timeEntries.length);
       }
     };
     refreshTimeEntryTimer = new Timer();
-    refreshTimeEntryTimer.schedule(refreshTimeEntriesTask,0L,REFRESH_TIME_ENTRIES_TIME*1000L);
+    refreshTimeEntryTimer.schedule(refreshTimeEntriesTask,0L,10*1000L);
   }
 
   /** done all
@@ -2497,15 +2589,6 @@ Dprintf.dprintf("");
            && (calendar0.get(Calendar.DATE ) == calendar1.get(Calendar.DATE ));
   }
 
-  /** check if date is today
-   * @param date date to check
-   * @return true iff date is today
-   */
-  private boolean isToday(Date date)
-  {
-    return isSameDay(date,new Date());
-  }
-
   /** add time entry to table
    * @param table table widget
    * @param timeEntry time entry to add
@@ -2533,6 +2616,26 @@ Dprintf.dprintf("");
   private void removeTableItem(Table table, Redmine.TimeEntry timeEntry)
   {
     Widgets.removeTableEntry(widgetTodayTimeEntryTable,timeEntry);
+  }
+
+  /** refresh time entry in table
+   * @param table table widget
+   * @param timeEntry time entry to refresh
+   */
+  private void refreshTableItem(Table table, Redmine.TimeEntry timeEntry)
+  {
+    Redmine.Activity activity = redmine.getActivity(timeEntry.activityId);
+    Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
+    Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
+
+    Widgets.updateTableEntry(widgetTodayTimeEntryTable,
+                             timeEntry,
+                             formatHours(timeEntry.hours),
+                             (activity != null) ? activity.name : "",
+                             (project != null) ? project.name : "",
+                             (issue != null) ? issue.subject : "",
+                             timeEntry.comments
+                            );
   }
 
   /** set sub-tree time entries
@@ -2587,51 +2690,24 @@ Dprintf.dprintf("");
 
   /** refresh time entry in tree
    * @param tree tree widget
-   * @param date date of time entry to refresh
+   * @param spentOn spent-on date
    */
-  private void refreshTreeItem(Tree tree, Date date)
+  private void refreshTreeItem(Tree tree, Redmine.SpentOn spentOn)
   {
-Dprintf.dprintf("refreshTreeItem=%s",date);
-    Calendar calendar0 = Calendar.getInstance(); calendar0.setTime(date);
     for (TreeItem refreshTreeItem : tree.getItems())
     {
-      if      (refreshTreeItem.getData() instanceof Date)
+      if      (refreshTreeItem.getData() instanceof Redmine.SpentOn)
       {
-        Calendar calendar1 = Calendar.getInstance(); calendar1.setTime((Date)refreshTreeItem.getData());
-
-        if (   (calendar0.get(Calendar.YEAR ) == calendar1.get(Calendar.YEAR ))
-            && (calendar0.get(Calendar.MONTH) == calendar1.get(Calendar.MONTH))
-            && (calendar0.get(Calendar.DATE ) == calendar1.get(Calendar.DATE ))
-           )
+        if (spentOn.equals((Redmine.SpentOn)refreshTreeItem.getData()))
         {
           Event treeEvent = new Event();
           treeEvent.item = refreshTreeItem;
-Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
+//Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
           tree.notifyListeners(SWT.SetData,treeEvent);
           break;
         }
       }
     }
-  }
-
-  /** refresh time entry in table
-   * @param table table widget
-   * @param timeEntry time entry to refresh
-   */
-  private void refreshTableItem(Table table, Redmine.TimeEntry timeEntry)
-  {
-    Redmine.Activity activity = redmine.getActivity(timeEntry.activityId);
-    Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
-    Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
-
-    Widgets.updateTableEntry(widgetTodayTimeEntryTable,
-                             timeEntry,
-                             formatHours(timeEntry.hours),
-                             (activity != null) ? activity.name : "",
-                             (project != null) ? project.name : "",
-                             (issue != null) ? issue.subject : "",
-                             timeEntry.comments
-                            );
   }
 
   /** edit time entry
@@ -2647,13 +2723,15 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
     class Data
     {
       int[] projectIds;
-      int[] issueIds;
+      int[] issueIds0;
+      int[] issueIds1;
       int[] activityIds;
 
       Data()
       {
         projectIds  = null;
-        issueIds    = null;
+        issueIds0   = null;
+        issueIds1   = null;
         activityIds = null;
       }
     };
@@ -2677,6 +2755,7 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
     dialog = Dialogs.openModal(shell,title,new double[]{1.0,0.0},1.0);
 
     final Combo    widgetProjects;
+    final Combo    widgetIssueIds;
     final Combo    widgetIssues;
     final DateTime widgetSpentOn;
     final Spinner  widgetSpentHourFraction;
@@ -2685,7 +2764,7 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
     final Text     widgetComments;
     final Button   widgetSave;
     composite = Widgets.newComposite(dialog);
-    composite.setLayout(new TableLayout(0.0,new double[]{0.0,1.0},4));
+    composite.setLayout(new TableLayout(0.0,new double[]{0.0,1.0,0.0},4));
     Widgets.layout(composite,0,0,TableLayoutData.NSWE,0,0,4);
     {
       label = Widgets.newLabel(composite,"Project:",SWT.NONE,ACCELERATOR_PROJECT);
@@ -2697,8 +2776,19 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
       label = Widgets.newLabel(composite,"Issue:",SWT.NONE,ACCELERATOR_ISSUE);
       Widgets.layout(label,1,0,TableLayoutData.W);
 
-      widgetIssues = Widgets.newSelect(composite);
-      Widgets.layout(widgetIssues,1,1,TableLayoutData.WE);
+      subComposite = Widgets.newComposite(composite);
+      subComposite.setLayout(new TableLayout(0.0,new double[]{0.0,1.0}));
+      Widgets.layout(subComposite,1,1,TableLayoutData.WE);
+      {
+        widgetIssueIds = Widgets.newSelect(subComposite);
+        Widgets.layout(widgetIssueIds,0,0,TableLayoutData.W);
+
+        widgetIssues = Widgets.newSelect(subComposite);
+        Widgets.layout(widgetIssues,0,1,TableLayoutData.WE);
+
+        widgetIssueStatus = Widgets.newLabel(subComposite);
+        Widgets.layout(widgetIssueStatus,0,2,TableLayoutData.E,0,0,0,0,60,SWT.DEFAULT);
+      }
 
       label = Widgets.newLabel(composite,"Spent:",SWT.NONE,ACCELERATOR_SPENT);
       Widgets.layout(label,2,0,TableLayoutData.W);
@@ -2711,13 +2801,10 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
         subSubComposite.setLayout(new TableLayout(0.0,0.0));
         Widgets.layout(subSubComposite,0,0,TableLayoutData.WE);
         {
-          Calendar calendar = Calendar.getInstance();
-          calendar.setTime(timeEntry.spentOn);
-
           widgetSpentOn = Widgets.newDate(subSubComposite);
-          widgetSpentOn.setDay  (calendar.get(Calendar.DAY_OF_MONTH));
-          widgetSpentOn.setMonth(calendar.get(Calendar.MONTH       ));
-          widgetSpentOn.setYear (calendar.get(Calendar.YEAR        ));
+          widgetSpentOn.setDay  (timeEntry.spentOn.getDay());
+          widgetSpentOn.setMonth(timeEntry.spentOn.getMonth());
+          widgetSpentOn.setYear (timeEntry.spentOn.getYear());
           Widgets.layout(widgetSpentOn,0,0,TableLayoutData.W);
           widgetSpentOn.setToolTipText("Spent-on date.");
 
@@ -2816,7 +2903,7 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
             Widgets.setFocus(widgetProjects);
             return;
           }
-          if ((issueIndex < 0) || (issueIndex >= data.issueIds.length ))
+          if ((issueIndex < 0) || (issueIndex >= data.issueIds1.length ))
           {
             Dialogs.error(shell,"Please select an issue for the new time entry.");
             Widgets.setFocus(widgetIssues);
@@ -2842,8 +2929,8 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
           }
 
           timeEntry.projectId  = data.projectIds[projectIndex];
-          timeEntry.issueId    = data.issueIds[issueIndex];
-          timeEntry.spentOn    = Widgets.getDate(widgetSpentOn);
+          timeEntry.issueId    = data.issueIds1[issueIndex];
+          timeEntry.spentOn    = redmine.new SpentOn(Widgets.getDate(widgetSpentOn));
           timeEntry.hours      = hours;
           timeEntry.activityId = data.activityIds[activityIndex];
           timeEntry.comments   = comments;
@@ -2908,15 +2995,34 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
         assert issue0 != null;
         assert issue1 != null;
 
+        if      (issue0.id < issue1.id) return -1;
+        else if (issue0.id > issue1.id) return  1;
+        else                            return  0;
+      }
+    });
+    data.issueIds0 = new int[issues.length];
+    for (int i = 0; i < issues.length; i++)
+    {
+      widgetIssueIds.add(Integer.toString(issues[i].id));
+      if (timeEntry.issueId == issues[i].id) widgetIssueIds.select(i);
+      data.issueIds0[i] = issues[i].id;
+    }
+    Arrays.sort(issues,new Comparator<Redmine.Issue>()
+    {
+      public int compare(Redmine.Issue issue0, Redmine.Issue issue1)
+      {
+        assert issue0 != null;
+        assert issue1 != null;
+
         return issue0.subject.compareTo(issue1.subject);
       }
     });
-    data.issueIds = new int[issues.length];
+    data.issueIds1 = new int[issues.length];
     for (int i = 0; i < issues.length; i++)
     {
       widgetIssues.add(issues[i].subject);
       if (timeEntry.issueId == issues[i].id) widgetIssues.select(i);
-      data.issueIds[i] = issues[i].id;
+      data.issueIds1[i] = issues[i].id;
     }
 
     Arrays.sort(activities,new Comparator<Redmine.Activity>()
@@ -2948,10 +3054,10 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
         Combo widget = (Combo)selectionEvent.widget;
         int   index  = widget.getSelectionIndex();
 
+        // get issues for project
         Redmine.Issue[] issues = null;
         try
         {
-          // get issues for project
           issues = redmine.getIssueArray(data.projectIds[index]);
         }
         catch (RedmineException exception)
@@ -2961,6 +3067,26 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
         }
 
         // show sorted issues
+        widgetIssueIds.removeAll();
+        Arrays.sort(issues,new Comparator<Redmine.Issue>()
+        {
+          public int compare(Redmine.Issue issue0, Redmine.Issue issue1)
+          {
+            assert issue0 != null;
+            assert issue1 != null;
+
+            if      (issue0.id < issue1.id) return -1;
+            else if (issue0.id > issue1.id) return  1;
+            else                            return  0;
+          }
+        });
+        data.issueIds0 = new int[issues.length];
+        for (int i = 0; i < issues.length; i++)
+        {
+          widgetIssueIds.add(Integer.toString(issues[i].id));
+          data.issueIds0[i] = issues[i].id;
+        }
+
         Arrays.sort(issues,new Comparator<Redmine.Issue>()
         {
           public int compare(Redmine.Issue issue0, Redmine.Issue issue1)
@@ -2972,13 +3098,54 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
           }
         });
         widgetIssues.removeAll();
-        data.issueIds = new int[issues.length];
+        data.issueIds1 = new int[issues.length];
         for (int i = 0; i < issues.length; i++)
         {
           widgetIssues.add(issues[i].subject);
-          data.issueIds[i] = issues[i].id;
+          data.issueIds1[i] = issues[i].id;
         }
-        widgetIssues.select(0);
+
+        // select first issue
+        if (data.issueIds1.length > 0)
+        {
+          widgetIssueIds.select(getIndex(data.issueIds0,data.issueIds1[0]));
+          widgetIssues.select(0);
+          widgetIssueStatus.setText(redmine.getStatusName(issues[0].statusId,""));
+        }
+      }
+    });
+    widgetIssueIds.addSelectionListener(new SelectionListener()
+    {
+      public void widgetDefaultSelected(SelectionEvent selectionEvent)
+      {
+      }
+      public void widgetSelected(SelectionEvent selectionEvent)
+      {
+        Combo widget = (Combo)selectionEvent.widget;
+
+        int index = widget.getSelectionIndex();
+        if ((index >= 0) && (index < data.issueIds0.length))
+        {
+          index = getIndex(data.issueIds1,data.issueIds0[index]);
+          if (index >= 0) widgetIssues.select(index);
+        }
+      }
+    });
+    widgetIssues.addSelectionListener(new SelectionListener()
+    {
+      public void widgetDefaultSelected(SelectionEvent selectionEvent)
+      {
+      }
+      public void widgetSelected(SelectionEvent selectionEvent)
+      {
+        Combo widget = (Combo)selectionEvent.widget;
+
+        int index = widget.getSelectionIndex();
+        if ((index >= 0) && (index < data.issueIds1.length))
+        {
+          index = getIndex(data.issueIds0,data.issueIds1[index]);
+          if (index >= 0) widgetIssueIds.select(index);
+        }
       }
     });
     widgetSpentMinuteFraction.addSelectionListener(new SelectionListener()
@@ -3096,9 +3263,9 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
   }
 
   /** add new time entry
-   * @param date date
+   * @param spentOn spent-on
    */
-  private void addTimeEntry(Date date)
+  private void addTimeEntry(Redmine.SpentOn spentOn)
     throws RedmineException
   {
     // create new time entry
@@ -3107,7 +3274,7 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
                                                         redmine.getDefaultActivityId(),
                                                         (double)Settings.minTimeDelta/60.0,
                                                         "",
-                                                        date
+                                                        spentOn
                                                        );
 
     if (editTimeEntry(timeEntry,"Add time entry","Add"))
@@ -3118,7 +3285,7 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
       refreshTreeItem(widgetTimeEntryTree,timeEntry.spentOn);
 
       // add today time entry table entry
-      if (isToday(timeEntry.spentOn))
+      if (timeEntry.spentOn.isToday())
       {
         TableItem tableItem = addTableItem(widgetTodayTimeEntryTable,timeEntry);
         widgetTodayTimeEntryTable.setSelection(tableItem);
@@ -3138,9 +3305,9 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
   /** add vacation date
    * @param date date
    */
-  private void addVacationDate(Date date)
+  private void addVacationDate(Redmine.SpentOn spentOn)
   {
-    Settings.VacationDate vacationDate = new Settings.VacationDate(date);
+    Settings.VacationDate vacationDate = new Settings.VacationDate(spentOn.getDate());
 
     if (!Settings.vacationDateSet.contains(vacationDate))
     {
@@ -3151,9 +3318,9 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
   /** remove vacation date
    * @param date date
    */
-  private void removeVacationDate(Date date)
+  private void removeVacationDate(Redmine.SpentOn spentOn)
   {
-    Settings.VacationDate vacationDate = new Settings.VacationDate(date);
+    Settings.VacationDate vacationDate = new Settings.VacationDate(spentOn.getDate());
 
     if (Settings.vacationDateSet.contains(vacationDate))
     {
@@ -3164,9 +3331,9 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
   /** check if date is vacation date
    * @param date date
    */
-  private boolean isVacationDate(Date date)
+  private boolean isVacationDate(Redmine.SpentOn spentOn)
   {
-    return Settings.vacationDateSet.contains(new Settings.VacationDate(date));
+    return Settings.vacationDateSet.contains(new Settings.VacationDate(spentOn.getDate()));
   }
 
   /** edit preferences
@@ -3271,8 +3438,8 @@ Dprintf.dprintf("found refreshTreeItem=%s",refreshTreeItem);
 
               if (editColor(name,color))
               {
-                Widgets.setTableEntryColor(widgetColors,color,1,new Color(null,color.foreground));
-                Widgets.setTableEntryColor(widgetColors,color,2,new Color(null,color.background));
+                Widgets.setTableEntryColor(widgetColors,color,1,(color.foreground != null) ? new Color(null,color.foreground) : null);
+                Widgets.setTableEntryColor(widgetColors,color,2,(color.background != null) ? new Color(null,color.background) : null);
                 widgetColors.deselectAll();
               }
             }
