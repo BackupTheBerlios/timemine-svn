@@ -550,6 +550,8 @@ public class Settings
   @SettingValue(type=SettingValueAdapterColor.class)
   public static Color                    colorTimeEntries                       = new Color(null,new RGB(255,255,255));
   @SettingValue(type=SettingValueAdapterColor.class)
+  public static Color                    colorTimeEntriesUpdate                 = new Color(new RGB(255,128,128),null);
+  @SettingValue(type=SettingValueAdapterColor.class)
   public static Color                    colorTimeEntriesIncomplete             = new Color(null,new RGB(255,128,128));
   @SettingValue(type=SettingValueAdapterColor.class)
   public static Color                    colorTimeEntriesWeekend                = new Color(new RGB(192,192,192),null);
