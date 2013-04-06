@@ -477,6 +477,8 @@ public class Timemine
    */
   Timemine(String[] args)
   {
+    final char MAIL_AT = '@';
+
     int exitcode = 255;
     try
     {
@@ -505,17 +507,17 @@ exception.printStackTrace();
     catch (AssertionError assertionError)
     {
       printInternalError(assertionError);
-      System.err.println("Please report this assertion error to torsten.rupp@gmx.net.");
+      System.err.println("Please report this assertion error to torsten.rupp"+MAIL_AT+"gmx.net."); // use MAIL_AT to avoid SPAM
     }
     catch (InternalError error)
     {
       printInternalError(error);
-      System.err.println("Please report this internal error to torsten.rupp@gmx.net.");
+      System.err.println("Please report this internal error to torsten.rupp"+MAIL_AT+"gmx.net."); // use MAIL_AT to avoid SPAM
     }
     catch (Error error)
     {
       printInternalError(error);
-      System.err.println("Please report this error to torsten.rupp@gmx.net.");
+      System.err.println("Please report this error to torsten.rupp"+MAIL_AT+"gmx.net."); // use MAIL_AT to avoid SPAM
     }
 
     System.exit(exitcode);
