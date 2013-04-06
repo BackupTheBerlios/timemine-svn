@@ -328,7 +328,6 @@ public class Redmine
      * @param activityId activity id
      * @param hourse spent hours
      * @param comments comments
-     * @param spentOn spent-on date
      * @param createdOn created-on date
      * @param updateOn update-on date
      */
@@ -375,6 +374,224 @@ public class Redmine
     }
   }
 
+  /** spent-on date
+   */
+  class SpentOn extends Object implements Cloneable
+  {
+    private Calendar calendar;
+
+    /** create spent-on date
+     * @param year year
+     * @param month month
+     * @param day day
+     */
+    SpentOn(int year, int month, int day)
+    {
+      this();
+      calendar.set(Calendar.YEAR,        year );
+      calendar.set(Calendar.MONTH,       month);
+      calendar.set(Calendar.DAY_OF_MONTH,day  );
+    }
+
+    /** create spent-on date
+     * @param date date
+     */
+    SpentOn(Date date)
+    {
+      this();
+      Calendar fromCalendar = Calendar.getInstance(); fromCalendar.setTime(date);
+      calendar.set(Calendar.YEAR,        fromCalendar.get(Calendar.YEAR        ));
+      calendar.set(Calendar.MONTH,       fromCalendar.get(Calendar.MONTH       ));
+      calendar.set(Calendar.DAY_OF_MONTH,fromCalendar.get(Calendar.DAY_OF_MONTH));
+    }
+
+    /** create spent-on date
+     * @param dayOffset day offset from today
+     */
+    SpentOn(int dayOffset)
+    {
+      this();
+      Calendar fromCalendar = Calendar.getInstance();
+      calendar.add(Calendar.DAY_OF_MONTH,dayOffset);
+    }
+
+    /** create spent-on date
+     */
+    SpentOn()
+    {
+      this.calendar = Calendar.getInstance();
+    }
+
+    /** clone object
+     * @return cloned object
+     */
+    public SpentOn clone()
+    {
+      return new SpentOn(calendar.getTime());
+    }
+
+    /** get year
+     * @return year
+     */
+    int getYear()
+    {
+      return calendar.get(Calendar.YEAR);
+    }
+
+    /** get month
+     * @return month
+     */
+    int getMonth()
+    {
+      return calendar.get(Calendar.MONTH);
+    }
+
+    /** get day
+     * @return day
+     */
+    int getDay()
+    {
+      return calendar.get(Calendar.DAY_OF_MONTH);
+    }
+
+    /** get weekday
+     * @return weekday
+     */
+    int getWeekday()
+    {
+      return calendar.get(Calendar.DAY_OF_WEEK);
+    }
+
+    /** get date
+     * @return date
+     */
+    Date getDate()
+    {
+      return calendar.getTime();
+    }
+
+    /** check if objects are equal
+     * @param object object
+     * @return true iff equal
+     */
+    public boolean equals(Object object)
+    {
+      return hashCode() == object.hashCode();
+    }
+
+    /** check if spent-on date is today
+     * @return true iff today
+     */
+    public boolean isToday()
+    {
+      Calendar todayCalendar = Calendar.getInstance();
+
+      return    (calendar.get(Calendar.YEAR        ) == todayCalendar.get(Calendar.YEAR        ))
+             && (calendar.get(Calendar.MONTH       ) == todayCalendar.get(Calendar.MONTH       ))
+             && (calendar.get(Calendar.DAY_OF_MONTH) == todayCalendar.get(Calendar.DAY_OF_MONTH));
+    }
+
+    /** check if spent-in dates are equal
+     * @param spentOn spent-on date
+     * @return true iff equal
+     */
+    public boolean equals(SpentOn spentOn)
+    {
+      return    (calendar.get(Calendar.YEAR) == spentOn.calendar.get(Calendar.YEAR))
+             && (calendar.get(Calendar.MONTH) == spentOn.calendar.get(Calendar.MONTH))
+             && (calendar.get(Calendar.DAY_OF_MONTH) == spentOn.calendar.get(Calendar.DAY_OF_MONTH));
+    }
+
+    /** check if spent-on is before date
+     * @param spentOn spent-on date
+     * @return true iff before date
+     */
+    public boolean isBefore(SpentOn spentOn)
+    {
+      return    (   (calendar.get(Calendar.YEAR) < spentOn.calendar.get(Calendar.YEAR))
+                )
+             || (   (calendar.get(Calendar.YEAR) == spentOn.calendar.get(Calendar.YEAR))
+                 && (calendar.get(Calendar.MONTH) < spentOn.calendar.get(Calendar.MONTH))
+                )
+             || (   (calendar.get(Calendar.YEAR) == spentOn.calendar.get(Calendar.YEAR))
+                 && (calendar.get(Calendar.MONTH) == spentOn.calendar.get(Calendar.MONTH))
+                 && (calendar.get(Calendar.DAY_OF_MONTH) < spentOn.calendar.get(Calendar.DAY_OF_MONTH))
+                );
+    }
+
+    /** check if spent-on is before date
+     * @param spentOn spent-on date
+     * @return true iff before date
+     */
+    public boolean isBefore(Date date)
+    {
+      return isBefore(new SpentOn(date));
+    }
+
+    /** check if spent-on is after date
+     * @param spentOn spent-on date
+     * @return true iff after date
+     */
+    public boolean isAfter(SpentOn spentOn)
+    {
+      return    (   (calendar.get(Calendar.YEAR) > spentOn.calendar.get(Calendar.YEAR))
+                )
+             || (   (calendar.get(Calendar.YEAR) == spentOn.calendar.get(Calendar.YEAR))
+                 && (calendar.get(Calendar.MONTH) > spentOn.calendar.get(Calendar.MONTH))
+                )
+             || (   (calendar.get(Calendar.YEAR) == spentOn.calendar.get(Calendar.YEAR))
+                 && (calendar.get(Calendar.MONTH) == spentOn.calendar.get(Calendar.MONTH))
+                 && (calendar.get(Calendar.DAY_OF_MONTH) > spentOn.calendar.get(Calendar.DAY_OF_MONTH))
+                );
+    }
+
+    /** check if spent-on is after date
+     * @param spentOn spent-on date
+     * @return true iff after date
+     */
+    public boolean isAfter(Date date)
+    {
+      return isAfter(new SpentOn(date));
+    }
+
+    /** compare spent-on dates
+     * @param spentOn spent-on date
+     * @return -1,0,1 if before/equal/after
+     */
+    public int compareTo(SpentOn spentOn)
+    {
+      return calendar.compareTo(spentOn.calendar);
+    }
+
+    /** get hash code: day+month+year only
+     * @return hash code
+     */
+    public int hashCode()
+    {
+      return   ((calendar.get(Calendar.DAY_OF_MONTH) & 0x0000001F) << 0)
+             | ((calendar.get(Calendar.MONTH       ) & 0x0000000F) << 5)
+             | ((calendar.get(Calendar.YEAR        ) & 0x007FFFFF) << 9);
+    }
+
+    /** convert to string
+     * @return string
+     */
+    public String toString(SimpleDateFormat simpleDateFormat)
+    {
+      return simpleDateFormat.format(calendar.getTime());
+    }
+
+    /** convert to string
+     * @return string
+     */
+    public String toString()
+    {
+      final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd");
+
+      return toString(DATE_FORMAT);
+    }
+  }
+
   /** time entry
    */
   class TimeEntry extends Entity
@@ -385,7 +602,7 @@ public class Redmine
     public int        activityId;
     public double     hours;
     public String     comments;
-    public Date       spentOn;
+    public SpentOn    spentOn;
     public final Date createdOn;
     public Date       updateOn;
 
@@ -401,16 +618,16 @@ public class Redmine
      * @param createdOn created-on date
      * @param updateOn update-on date
      */
-    TimeEntry(int    id,
-              int    projectId,
-              int    issueId,
-              int    userId,
-              int    activityId,
-              double hours,
-              String comments,
-              Date   spentOn,
-              Date   createdOn,
-              Date   updateOn
+    TimeEntry(int     id,
+              int     projectId,
+              int     issueId,
+              int     userId,
+              int     activityId,
+              double  hours,
+              String  comments,
+              SpentOn spentOn,
+              Date    createdOn,
+              Date    updateOn
              )
     {
       super(id);
@@ -426,6 +643,43 @@ public class Redmine
     }
 
     /** create time entry
+     * @param id time entry id
+     * @param projectId project id
+     * @param issueId issue id
+     * @param userId user id
+     * @param activityId activity id
+     * @param hourse spent hours
+     * @param comments comments
+     * @param spentOn spent-on date
+     * @param createdOn created-on date
+     * @param updateOn update-on date
+     */
+    TimeEntry(int     id,
+              int     projectId,
+              int     issueId,
+              int     userId,
+              int     activityId,
+              double  hours,
+              String  comments,
+              Date    spentOn,
+              Date    createdOn,
+              Date    updateOn
+             )
+    {
+      this(id,
+           projectId,
+           issueId,
+           userId,
+           activityId,
+           hours,
+           comments,
+           new SpentOn(spentOn),
+           createdOn,
+           updateOn
+          );
+    }
+
+    /** create time entry
      * @param projectId project id
      * @param issueId issue id
      * @param activityId activity id
@@ -433,12 +687,12 @@ public class Redmine
      * @param comments comments
      * @param spentOn spent-on date
      */
-    TimeEntry(int    projectId,
-              int    issueId,
-              int    activityId,
-              double hours,
-              String comments,
-              Date   spentOn
+    TimeEntry(int     projectId,
+              int     issueId,
+              int     activityId,
+              double  hours,
+              String  comments,
+              SpentOn spentOn
              )
     {
       this(ID_NONE,
@@ -473,7 +727,7 @@ public class Redmine
            activityId,
            hours,
            comments,
-           new Date()
+           today()
           );
     }
 
@@ -639,9 +893,97 @@ public class Redmine
     // ----------------------------------------------------------------------
   }
 
+  private class UpdateThread extends Thread
+  {
+    private final int TIMEOUT = 60*1000;
+
+    private boolean quitFlag   = false;
+    private Object  trigger    = new Object();
+    private boolean updateFlag = false;
+
+    UpdateThread()
+    {
+      setDaemon(true);
+    }
+
+    public void run()
+    {
+      while (!quitFlag)
+      {
+        // wait for update requested or timeout
+        synchronized(trigger)
+        {
+          if (!updateFlag)
+          {
+            try { trigger.wait(TIMEOUT); } catch (InterruptedException exception) { Dprintf.dprintf("");
+            /* ignored */ }
+          }
+          updateFlag = false;
+        }
+
+        // update projects, activities
+
+        // update issues
+
+        // update hours sums
+        ArrayList<SpentOn> spentOnList = new ArrayList<SpentOn>();
+        synchronized(timeEntryHoursSumDateMap)
+        {
+          for (SpentOn spentOn : timeEntryHoursSumDateMap.keySet())
+          {
+            if (timeEntryHoursSumDateMap.get(spentOn) < 0) spentOnList.add(spentOn);
+          }
+        }
+        for (SpentOn spentOn : spentOnList)
+        {
+          try
+          {
+            // get hours sum
+            double timeEntryHoursSum = getTimeEntryHoursSum(ID_ANY,ID_ANY,ownUserId,spentOn);
+//Dprintf.dprintf("spentOn=%s timeEntryHoursSum=%f",spentOn,timeEntryHoursSum);
+
+            // store
+            synchronized(timeEntryHoursSumDateMap)
+            {
+              timeEntryHoursSumDateMap.put(spentOn,timeEntryHoursSum);
+            }
+          }
+          catch (RedmineException exception)
+          {
+            // ignored
+          }
+        }
+      }
+          }
+
+    public void quit()
+    {
+      quitFlag = true;
+    }
+
+    public void triggerUpdate()
+    {
+      synchronized(trigger)
+      {
+        updateFlag = true;
+        trigger.notifyAll();
+      }
+    }
+
+    public void updateTimeEntryHoursSum(SpentOn spentOn)
+    {
+      synchronized(timeEntryHoursSumDateMap)
+      {
+        timeEntryHoursSumDateMap.put(spentOn,HOURS_UPDATE);
+        triggerUpdate();
+      }
+    }
+  }
+
   // --------------------------- constants --------------------------------
   public  final static int               ID_ANY          = -1;
   public  final static int               ID_NONE         =  0;
+  public  final static double            HOURS_UPDATE    = -1;
 
   private final static int               ENTRY_LIMIT     = 100; // max. 100
   private final static SimpleDateFormat  DATE_FORMAT     = new SimpleDateFormat("yyyy-MM-dd");
@@ -655,8 +997,9 @@ public class Redmine
   private int                                 serverPort;
   private boolean                             serverUseSSL;
   private String                              authorization;
-
   private HostnameVerifier                    anyHostnameVerifier;
+
+  private UpdateThread                        updateThread;
 
   private int                                 ownUserId;
 
@@ -672,19 +1015,20 @@ public class Redmine
   private long                                activityMapUpdateTimeStamp = 0L;
 
   private SoftHashMap<Integer,Project>        projectMap                 = new SoftHashMap<Integer,Project>();
-  private long                                projectMapUpdateTimeStamp  = 0L;
   private int                                 projectsTotal              = 0;
+  private long                                projectMapUpdateTimeStamp  = 0L;
 
   private SoftHashMap<Integer,Issue>          issueMap                   = new SoftHashMap<Integer,Issue>();
   private int                                 issuesTotal                = 0;
   private int                                 issueMapProjectId          = ID_NONE;
   private long                                issueMapUpdateTimeStamp    = 0L;
 
-  private HashMap<Integer,Integer>            timeEntryIdMap             = new HashMap<Integer,Integer>();   // map id -> index
-  private HashMap<Date,Integer>               timeEntryDateMap           = new HashMap<Date,Integer>();   // map date -> index
+  private HashMap<Integer,Integer>            timeEntryIdMap             = new HashMap<Integer,Integer>();      // map id -> index
+  private HashMap<SpentOn,Integer>            timeEntrySpentOnMap        = new HashMap<SpentOn,Integer>();      // map spent-on date -> index
   private ArrayList<SoftReference<TimeEntry>> timeEntries                = new ArrayList<SoftReference<TimeEntry>>();
   private Date                                timeEntryStartDate;
   private long                                timeEntriesUpdateTimeStamp = 0L;
+  private SoftHashMap<SpentOn,Double>         timeEntryHoursSumDateMap   = new SoftHashMap<SpentOn,Double>();   // map spent-on date -> hours sum
 
   // ------------------------ native functions ----------------------------
 
@@ -740,6 +1084,11 @@ public class Redmine
         done(getIntValue(element,"id"));
       }
     });
+
+    // start update worker thread
+    updateThread = new UpdateThread();
+    updateThread.start();
+    updateThread.triggerUpdate();
   }
 
   /** get own user id
@@ -748,6 +1097,11 @@ public class Redmine
   public int getOwnUserId()
   {
     return this.ownUserId;
+  }
+
+  public SpentOn today()
+  {
+    return new SpentOn();
   }
 
   /** get Redmine users
@@ -835,6 +1189,42 @@ public class Redmine
     return trackerMap;
   }
 
+  /** get tracker
+   * @param trackerId tracker id
+   * @return tracker
+   */
+  public Tracker getTracker(int trackerId)
+    throws RedmineException
+  {
+    Tracker tracker = trackerMap.get(trackerId);
+    if (tracker == null)
+    {
+      getTrackers();
+      tracker = trackerMap.get(trackerId);
+    }
+
+    return tracker;
+  }
+
+  /** get tracker name
+   * @param trackerId tracker id
+   * @param defaultName default name
+   * @return tracker name
+   */
+  public String getTrackerName(int trackerId, String defaultName)
+  {
+    try
+    {
+      Tracker tracker = getTracker(trackerId);
+
+      return (tracker != null) ? tracker.name : defaultName;
+    }
+    catch (RedmineException exception)
+    {
+      return defaultName;
+    }
+  }
+
   /** get Redmine status
    * @return status hash map <id,status>
    */
@@ -864,6 +1254,42 @@ public class Redmine
     }
 
     return statusMap;
+  }
+
+  /** get status
+   * @param statusId status id
+   * @return status
+   */
+  public Status getStatus(int statusId)
+    throws RedmineException
+  {
+    Status status = statusMap.get(statusId);
+    if (status == null)
+    {
+      getStatus();
+      status = statusMap.get(statusId);
+    }
+
+    return status;
+  }
+
+  /** get status name
+   * @param statusId status id
+   * @param defaultName default name
+   * @return status name
+   */
+  public String getStatusName(int statusId, String defaultName)
+  {
+    try
+    {
+      Status status = getStatus(statusId);
+
+      return (status != null) ? status.name : defaultName;
+    }
+    catch (RedmineException exception)
+    {
+      return defaultName;
+    }
   }
 
   /** get Redmine priorities
@@ -896,6 +1322,23 @@ public class Redmine
     }
 
     return priorityMap;
+  }
+
+  /** get priority
+   * @param priorityId priority id
+   * @return priority
+   */
+  public Priority getPriority(int priorityId)
+    throws RedmineException
+  {
+    Priority priority = priorityMap.get(priorityId);
+    if (priority == null)
+    {
+      getPriorities();
+      priority = priorityMap.get(priorityId);
+    }
+
+    return priority;
   }
 
   /** get default priority id
@@ -1175,7 +1618,7 @@ public class Redmine
    * @param spentOn spent-on date or null
    * @return time entry hash map <id,time entry>
    */
-  public synchronized SoftHashMap<Integer,TimeEntry> getTimeEntries(final int projectId, final int issueId, final int userId, final Date spentOn)
+  public synchronized SoftHashMap<Integer,TimeEntry> getTimeEntries(final int projectId, final int issueId, final int userId, final SpentOn spentOn)
     throws RedmineException
   {
     SoftHashMap<Integer,TimeEntry> timeEntryMap = new SoftHashMap<Integer,TimeEntry>();
@@ -1208,6 +1651,13 @@ public class Redmine
 //Dprintf.dprintf("calendar0=%s calendar1=%s",calendar0,calendar1);
           timeEntryMap.put(timeEntry.id,timeEntry);
         }
+
+        // stop when date is found before given spent date (Note: assume time entries are sorted descended)
+        if (timeEntry.spentOn.isBefore(spentOn))
+        {
+//Dprintf.dprintf("stop %s",timeEntry);
+          break;
+        }
       }
     }
 
@@ -1219,7 +1669,7 @@ public class Redmine
    * @param spentOn spent-on date or null
    * @return time entry hash map <id,time entry>
    */
-  public SoftHashMap<Integer,TimeEntry> getTimeEntries(Date spentOn)
+  public SoftHashMap<Integer,TimeEntry> getTimeEntries(SpentOn spentOn)
     throws RedmineException
   {
     return getTimeEntries(ID_ANY,ID_ANY,ownUserId,spentOn);
@@ -1244,7 +1694,7 @@ public class Redmine
    * @param spentOn spent-on date or null
    * @return total number of time entries
    */
-  public synchronized int getTimeEntryCount(int projectId, int issueId, int userId, Date spentOn)
+  public synchronized int getTimeEntryCount(int projectId, int issueId, int userId, SpentOn spentOn)
     throws RedmineException
   {
     int n = 0;
@@ -1275,6 +1725,13 @@ public class Redmine
         {
           n++;
         }
+
+        // stop when date is found before given spent date (Note: assume time entries are sorted descended)
+        if (timeEntry.spentOn.isBefore(spentOn))
+        {
+//Dprintf.dprintf("stop %s",timeEntry);
+          break;
+        }
       }
     }
 
@@ -1299,7 +1756,7 @@ public class Redmine
    * @param spentOn spent-on date or null
    * @return total number of time entries
    */
-  public int getTimeEntryCount(int projectId, int issueId, Date spentOn)
+  public int getTimeEntryCount(int projectId, int issueId, SpentOn spentOn)
     throws RedmineException
   {
     return getTimeEntryCount(projectId,issueId,ownUserId,spentOn);
@@ -1320,7 +1777,7 @@ public class Redmine
    * @param spentOn spent-on date or null
    * @return total number of time entries
    */
-  public int getTimeEntryCount(Date spentOn)
+  public int getTimeEntryCount(SpentOn spentOn)
     throws RedmineException
   {
     return getTimeEntryCount(ID_ANY,ID_ANY,spentOn);
@@ -1352,9 +1809,9 @@ public class Redmine
    * @param issueId issue id or ID_ANY
    * @param userId user id or ID_ANY
    * @param spentOn spent-on date or null
-   * @return hours sum of time entries
+   * @return hours sum of time entries or UPDATE if data still not available
    */
-  public synchronized double getTimeEntryHoursSum(int projectId, int issueId, int userId, Date spentOn)
+  public synchronized double getTimeEntryHoursSum(int projectId, int issueId, int userId, SpentOn spentOn)
     throws RedmineException
   {
     double hoursSum = 0.0;
@@ -1389,7 +1846,7 @@ public class Redmine
         }
 
         // stop when date is found before given spent date (Note: assume time entries are sorted descended)
-        if (isTimeEntryBefore(timeEntry,spentOn))
+        if (timeEntry.spentOn.isBefore(spentOn))
         {
 //Dprintf.dprintf("stop %s",timeEntry);
           break;
@@ -1406,7 +1863,7 @@ public class Redmine
    * @param spentOn spent-on date or null
    * @return hours sum of time entries
    */
-  public double getTimeEntryHoursSum(int projectId, int issueId, Date spentOn)
+  public double getTimeEntryHoursSum(int projectId, int issueId, SpentOn spentOn)
     throws RedmineException
   {
     return getTimeEntryHoursSum(projectId,issueId,ownUserId,spentOn);
@@ -1427,10 +1884,26 @@ public class Redmine
    * @param spentOn spent-on date or null
    * @return hours sum of time entries
    */
-  public double getTimeEntryHoursSum(Date spentOn)
+  public double getTimeEntryHoursSum(SpentOn spentOn)
     throws RedmineException
   {
-    return getTimeEntryHoursSum(ID_ANY,ID_ANY,ownUserId,spentOn);
+    double hoursSum = HOURS_UPDATE;
+
+    synchronized(timeEntryHoursSumDateMap)
+    {
+      if (timeEntryHoursSumDateMap.containsKey(spentOn))
+      {
+        hoursSum = timeEntryHoursSumDateMap.get(spentOn);
+//Dprintf.dprintf("found for %s %f",spentOn,hoursSum);
+      }
+      else
+      {
+        updateThread.updateTimeEntryHoursSum(spentOn);
+      }
+    }
+
+    return hoursSum;
+//    return getTimeEntryHoursSum(ID_ANY,ID_ANY,ownUserId,spentOn);
   }
 
   /** get Redmine time entries as an array
@@ -1440,7 +1913,7 @@ public class Redmine
    * @param spentOn spent-on date or null
    * @return time entry array
    */
-  public synchronized TimeEntry[] getTimeEntryArray(int projectId, int issueId, int userId, Date spentOn)
+  public synchronized TimeEntry[] getTimeEntryArray(int projectId, int issueId, int userId, SpentOn spentOn)
     throws RedmineException
   {
     // update number of time entries, start date
@@ -1474,7 +1947,7 @@ public class Redmine
         }
 
         // stop when date is found before given spent date (Note: assume time entries are sorted descended)
-        if ((spentOn != null) && isTimeEntryBefore(timeEntry,spentOn))
+        if ((spentOn != null) && timeEntry.spentOn.isBefore(spentOn))
         {
           break;
         }
@@ -1490,7 +1963,7 @@ public class Redmine
    * @param spentOn spent-on date or null
    * @return time entry array
    */
-  public TimeEntry[] getTimeEntryArray(int projectId, int issueId, Date spentOn)
+  public TimeEntry[] getTimeEntryArray(int projectId, int issueId, SpentOn spentOn)
     throws RedmineException
   {
     return getTimeEntryArray(projectId,issueId,ownUserId,spentOn);
@@ -1500,7 +1973,7 @@ public class Redmine
    * @param spentOn spent-on date or null
    * @return time entry array
    */
-  public TimeEntry[] getTimeEntryArray(Date spentOn)
+  public TimeEntry[] getTimeEntryArray(SpentOn spentOn)
     throws RedmineException
   {
     return getTimeEntryArray(ID_ANY,ID_ANY,spentOn);
@@ -1514,7 +1987,7 @@ public class Redmine
   public TimeEntry[] getTimeEntryArray(int projectId, int issueId)
     throws RedmineException
   {
-    return getTimeEntryArray(projectId,issueId,new Date());
+    return getTimeEntryArray(projectId,issueId,today());
   }
 
   /** get Redmine time entry
@@ -1570,17 +2043,17 @@ Dprintf.dprintf("todo: get at index");
    * @param index index of time entry [0..n-1]
    * @return time entry or null
    */
-  public TimeEntry getTimeEntry(Date date)
+  public TimeEntry getTimeEntry(SpentOn spentOn)
     throws RedmineException
   {
     TimeEntry timeEntry = null;
 Dprintf.dprintf("required?");
 
-    Integer index = timeEntryDateMap.get(date);
+    Integer index = timeEntrySpentOnMap.get(spentOn);
     if (index == null)
     {
       getTimeEntries(ID_ANY,ID_ANY,ID_ANY,null);
-      index = timeEntryDateMap.get(date);
+      index = timeEntrySpentOnMap.get(spentOn);
     }
     if (index != null)
     {
@@ -1648,6 +2121,18 @@ Dprintf.dprintf("required?");
   }
 
   /** clear time entry cache
+   * @param timeEntry time entry to clear from cache
+   */
+  public void clearTimeEntryCache(TimeEntry timeEntry)
+  {
+    for (int i = 0; i < timeEntries.size(); i++)
+    {
+      timeEntries.set(i,TIME_ENTRY_NULL);
+    }
+    timeEntriesUpdateTimeStamp = 0L;
+  }
+
+  /** clear time entry cache
    */
   public void clearTimeEntryCache()
   {
@@ -1658,12 +2143,48 @@ Dprintf.dprintf("required?");
     timeEntriesUpdateTimeStamp = 0L;
   }
 
+  /** clear time entry hours sum cache
+   * @param timeEntry time entry to clear from cache
+   */
+  public void clearTimeEntryHoursSumCache(TimeEntry timeEntry)
+  {
+    synchronized(timeEntryHoursSumDateMap)
+    {
+      timeEntryHoursSumDateMap.put(timeEntry.spentOn,HOURS_UPDATE);
+    }
+  }
+
+  /** clear time entry hours sum cache
+   */
+  public void clearTimeEntryHoursSumCache()
+  {
+    synchronized(timeEntryHoursSumDateMap)
+    {
+      timeEntryHoursSumDateMap.clear();
+    }
+  }
+
+  /** clear all caches
+   */
+  public void clearCaches()
+  {
+    clearUserCache();
+    clearTrackerCache();
+    clearStatusCache();
+    clearPriorityCache();
+    clearActivityCache();
+    clearProjectCache();
+    clearIssueCache();
+    clearTimeEntryCache();
+  }
+
   /** add time entry
    * @param timeEntry time entry to add
    */
   public void add(final TimeEntry timeEntry)
     throws RedmineException
   {
+    // add time entry on Redmine server
     postData("/time_entries","time_entry",timeEntry,new CreateHandler()
     {
       public void data(Document document, Element rootElement)
@@ -1675,7 +2196,7 @@ Dprintf.dprintf("required?");
         rootElement.appendChild(element);
 
         element = document.createElement("spent_on");
-        element.appendChild(document.createTextNode(DATE_FORMAT.format(timeEntry.spentOn)));
+        element.appendChild(document.createTextNode(timeEntry.spentOn.toString(DATE_FORMAT)));
         rootElement.appendChild(element);
 
         element = document.createElement("hours");
@@ -1691,7 +2212,10 @@ Dprintf.dprintf("required?");
         rootElement.appendChild(element);
       }
     });
-    clearTimeEntryCache();
+
+    // clear caches
+    clearTimeEntryCache(timeEntry);
+    clearTimeEntryHoursSumCache(timeEntry);
   }
 
   /** update time entry
@@ -1700,6 +2224,7 @@ Dprintf.dprintf("required?");
   public void update(final TimeEntry timeEntry)
     throws RedmineException
   {
+    // update time entry on Redmine server
     putData("/time_entries/"+timeEntry.id,"time_entry",timeEntry,new CreateHandler()
     {
       public void data(Document document, Element rootElement)
@@ -1727,7 +2252,10 @@ Dprintf.dprintf("required?");
         rootElement.appendChild(element);
       }
     });
-    clearTimeEntryCache();
+
+    // clear caches
+    clearTimeEntryCache(timeEntry);
+    clearTimeEntryHoursSumCache(timeEntry);
   }
 
   /** delete time entry
@@ -1736,8 +2264,12 @@ Dprintf.dprintf("required?");
   public void delete(TimeEntry timeEntry)
     throws RedmineException
   {
+    // delete time entry from Redmine server
     deleteData("/time_entries/"+timeEntry.id);
-    clearTimeEntryCache();
+
+    // clear caches
+    clearTimeEntryCache(timeEntry);
+    clearTimeEntryHoursSumCache(timeEntry);
   }
 
   /** convert house/minutes fraction into duration
@@ -1788,14 +2320,14 @@ Dprintf.dprintf("required?");
     {
       if (serverUseSSL)
       {
-        URL url = new URL("https://"+serverName+/*":"+serverPort+*/urlString+".xml"+((arguments != null) ? "?"+arguments : ""));
+        URL url = new URL("https://"+serverName+":"+serverPort+urlString+".xml"+((arguments != null) ? "?"+arguments : ""));
         HttpsURLConnection httpsConnection = (HttpsURLConnection)url.openConnection();
         httpsConnection.setHostnameVerifier(anyHostnameVerifier);
         connection = httpsConnection;
       }
       else
       {
-        URL url = new URL("http://"+serverName+/*":"+serverPort+*/urlString+".xml"+((arguments != null) ? "?"+arguments : ""));
+        URL url = new URL("http://"+serverName+":"+serverPort+urlString+".xml"+((arguments != null) ? "?"+arguments : ""));
         HttpURLConnection httpConnection = (HttpURLConnection)url.openConnection();
         connection = httpConnection;
       }
@@ -1806,7 +2338,7 @@ Dprintf.dprintf("required?");
     }
     catch (IOException exception)
     {
-      throw new RedmineException("Receive data fail",exception);
+      throw new RedmineException("Connect to server fail",exception);
     }
 
     return connection;
@@ -1897,32 +2429,26 @@ Dprintf.dprintf("required?");
       }
       catch (ParserConfigurationException exception)
       {
-Dprintf.dprintf("");
         throw new RedmineException("XML parse fail",exception);
       }
       catch (SAXException exception)
       {
-Dprintf.dprintf("");
         throw new RedmineException("XML parse fail",exception);
       }
       catch (ProtocolException exception)
       {
-Dprintf.dprintf("");
         throw new RedmineException(exception);
       }
       catch (UnknownHostException exception)
       {
-Dprintf.dprintf("");
         throw new RedmineException("Unknown host '"+serverName+"'");
       }
       catch (IOException exception)
       {
-Dprintf.dprintf("exceptio=-%s",exception);
         throw new RedmineException("Receive data fail",exception);
       }
       finally
       {
-Dprintf.dprintf("");
         if (connection != null) connection.disconnect();
       }
     }
@@ -2659,7 +3185,7 @@ Dprintf.dprintf("");
       {
 //Dprintf.dprintf("index=%d id=%d: %s",index,timeEntry.id,timeEntry);
         timeEntryIdMap.put(timeEntry.id,index);
-        if (!timeEntryDateMap.containsKey(timeEntry.spentOn)) timeEntryDateMap.put(timeEntry.spentOn,index);
+        if (!timeEntrySpentOnMap.containsKey(timeEntry.spentOn)) timeEntrySpentOnMap.put(timeEntry.spentOn,index);
         timeEntries.set(index,new SoftReference<TimeEntry>(timeEntry));
       }
     });
@@ -2673,15 +3199,8 @@ Dprintf.dprintf("");
    * @param spentOn spent-on date or null
    * @return true if time entry match, false otherwise
    */
-  private boolean matchTimeEntry(TimeEntry timeEntry, int projectId, int issueId, int userId, Date spentOn)
+  private boolean matchTimeEntry(TimeEntry timeEntry, int projectId, int issueId, int userId, SpentOn spentOn)
   {
-    Calendar calendar0 = null;
-    Calendar calendar1 = null;
-    if (spentOn != null)
-    {
-      calendar0 = Calendar.getInstance(); calendar0.setTime(spentOn);
-      calendar1 = Calendar.getInstance(); calendar1.setTime(timeEntry.spentOn);
-    }
     return    (   (projectId == ID_ANY)
                || (timeEntry.projectId == projectId)
               )
@@ -2692,52 +3211,7 @@ Dprintf.dprintf("");
                || (timeEntry.userId == userId)
               )
            && (   (spentOn == null)
-               || (   (calendar0.get(Calendar.YEAR ) == calendar1.get(Calendar.YEAR ))
-                   && (calendar0.get(Calendar.MONTH) == calendar1.get(Calendar.MONTH))
-                   && (calendar0.get(Calendar.DATE ) == calendar1.get(Calendar.DATE ))
-                  )
-              );
-  }
-
-  /** check if time entry was spent before date
-   * @param timeEntry time entry
-   * @param date date
-   * @return true if time entry was spent before date, false otherwise
-   */
-  private boolean isTimeEntryBefore(TimeEntry timeEntry, Date date)
-  {
-    Calendar calendar0 = Calendar.getInstance(); calendar0.setTime(timeEntry.spentOn);
-    Calendar calendar1 = Calendar.getInstance(); calendar1.setTime(date);
-
-    return    (   (calendar0.get(Calendar.YEAR )  < calendar1.get(Calendar.YEAR ))
-              )
-           || (   (calendar0.get(Calendar.YEAR ) == calendar1.get(Calendar.YEAR ))
-               && (calendar0.get(Calendar.MONTH)  < calendar1.get(Calendar.MONTH))
-              )
-           || (   (calendar0.get(Calendar.YEAR ) == calendar1.get(Calendar.YEAR ))
-               && (calendar0.get(Calendar.MONTH) == calendar1.get(Calendar.MONTH))
-               && (calendar0.get(Calendar.DATE )  < calendar1.get(Calendar.DATE ))
-              );
-  }
-
-    /** check if time entry was spent after date
-   * @param timeEntry time entry
-   * @param date date
-   * @return true if time entry was spent before date, false otherwise
-   */
-  private boolean isTimeEntryAfter(TimeEntry timeEntry, Date date)
-  {
-    Calendar calendar0 = Calendar.getInstance(); calendar0.setTime(timeEntry.spentOn);
-    Calendar calendar1 = Calendar.getInstance(); calendar1.setTime(date);
-
-    return    (   (calendar0.get(Calendar.YEAR )  > calendar1.get(Calendar.YEAR ))
-              )
-           || (   (calendar0.get(Calendar.YEAR ) == calendar1.get(Calendar.YEAR ))
-               && (calendar0.get(Calendar.MONTH)  > calendar1.get(Calendar.MONTH))
-              )
-           || (   (calendar0.get(Calendar.YEAR ) == calendar1.get(Calendar.YEAR ))
-               && (calendar0.get(Calendar.MONTH) == calendar1.get(Calendar.MONTH))
-               && (calendar0.get(Calendar.DATE )  > calendar1.get(Calendar.DATE ))
+               || spentOn.equals(timeEntry.spentOn)
               );
   }
 }
