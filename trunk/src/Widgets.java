@@ -3079,13 +3079,14 @@ e composite widget
    * @param data data structure to store select value or null
    * @param field field name in data structure to set on selection
    * @param value value for checkbox
+   * @param style SWT style flags
    * @return new select widget
    */
-  public static Combo newSelect(Composite composite, final Object data, final String field, String value)
+  public static Combo newSelect(Composite composite, final Object data, final String field, String value, int style)
   {
     Combo combo;
 
-    combo = new Combo(composite,SWT.BORDER|SWT.READ_ONLY);
+    combo = new Combo(composite,style|SWT.BORDER|SWT.READ_ONLY);
     if      (value != null)
     {
       combo.setText(value);
@@ -3115,11 +3116,45 @@ e composite widget
    * @param composite composite widget
    * @param data data structure to store select value or null
    * @param field field name in data structure to set on selection
+   * @param value value for checkbox
+   * @return new select widget
+   */
+  public static Combo newSelect(Composite composite, final Object data, final String field, String value)
+  {
+    return newSelect(composite,data,field,value,SWT.NONE);
+  }
+
+  /** new combo widget
+   * @param composite composite widget
+   * @param data data structure to store select value or null
+   * @param field field name in data structure to set on selection
+   * @param style SWT style flags
+   * @return new select widget
+   */
+  public static Combo newSelect(Composite composite, Object data, String field, int style)
+  {
+    return newSelect(composite,data,field,null,style);
+  }
+
+  /** new combo widget
+   * @param composite composite widget
+   * @param data data structure to store select value or null
+   * @param field field name in data structure to set on selection
    * @return new select widget
    */
   public static Combo newSelect(Composite composite, Object data, String field)
   {
-    return newSelect(composite,data,field,null);
+    return newSelect(composite,data,field,field,SWT.NONE);
+  }
+
+  /** new combo widget
+   * @param composite composite widget
+   * @param style SWT style flags
+   * @return new select widget
+   */
+  public static Combo newSelect(Composite composite, int style)
+  {
+    return newSelect(composite,null,null,style);
   }
 
   /** new combo widget
@@ -3128,7 +3163,7 @@ e composite widget
    */
   public static Combo newSelect(Composite composite)
   {
-    return newSelect(composite,null,null);
+    return newSelect(composite,SWT.NONE);
   }
 
   /** new enum select widget
