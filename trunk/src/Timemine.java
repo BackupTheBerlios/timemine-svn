@@ -2231,8 +2231,9 @@ Dprintf.dprintf("");
         }
       }
     };
+    refreshTask.run();
     refreshTimer = new Timer();
-    refreshTimer.schedule(refreshTask,0L,REFRESH_TIME*1000L);
+    refreshTimer.schedule(refreshTask,REFRESH_TIME*1000L,REFRESH_TIME*1000L);
 
     refreshTodayTimeEntriesTask = new TimerTask()
     {
@@ -2286,8 +2287,9 @@ Dprintf.dprintf("");
         }
       }
     };
+    refreshTodayTimeEntriesTask.run();
     refreshTodayTimeEntryTimer = new Timer();
-    refreshTodayTimeEntryTimer.schedule(refreshTodayTimeEntriesTask,0L,10*1000L);
+    refreshTodayTimeEntryTimer.schedule(refreshTodayTimeEntriesTask,10*1000L,10*1000L);
 
     refreshTimeEntriesTask = new TimerTask()
     {
@@ -2329,8 +2331,9 @@ Dprintf.dprintf("");
         }
       }
     };
+    refreshTimeEntriesTask.run();
     refreshTimeEntryTimer = new Timer();
-    refreshTimeEntryTimer.schedule(refreshTimeEntriesTask,0L,10*1000L);
+    refreshTimeEntryTimer.schedule(refreshTimeEntriesTask,10*1000L,10*1000L);
   }
 
   /** done all
@@ -2759,6 +2762,7 @@ Dprintf.dprintf("");
     final Combo    widgetProjects;
     final Combo    widgetIssueIds;
     final Combo    widgetIssues;
+    final Label    widgetIssueStatus;
     final DateTime widgetSpentOn;
     final Spinner  widgetSpentHourFraction;
     final Spinner  widgetSpentMinuteFraction;
