@@ -166,7 +166,6 @@ public class SoftHashMap<K,V> extends AbstractMap<K,V> implements Serializable
 
     while ((reference = referenceQueue.poll()) != null)
     {
-Dprintf.dprintf("purge %s",reference);
       hashMap.remove(reverseHashMap.remove(reference));
     }
   }
