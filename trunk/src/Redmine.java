@@ -893,6 +893,8 @@ public class Redmine
     // ----------------------------------------------------------------------
   }
 
+  /** background update thread
+   */
   private class UpdateThread extends Thread
   {
     private final int TIMEOUT = 60*1000;
@@ -1627,36 +1629,39 @@ public class Redmine
     updateTimeEntryData();
 
     // get data
-    for (int i = 0; i < timeEntries.size(); i++)
+    synchronized(timeEntries)
     {
-      // get soft-reference for entry
-      SoftReference<TimeEntry> softReference = timeEntries.get(i);
-      if ((softReference == null) || (softReference.get() == null))
+      for (int i = 0; i < timeEntries.size(); i++)
       {
-//Dprintf.dprintf("fill %d length %d",i,ENTRY_LIMIT);
-        // fill time entry array (get as much data a possible with single request)
-        fillTimeEntry(i,ENTRY_LIMIT);
-
         // get soft-reference for entry
-        softReference = timeEntries.get(i);
-      }
-
-      // get time entry
-      if ((softReference != null) && (softReference.get() != null))
-      {
-        TimeEntry timeEntry = softReference.get();
-
-        if (matchTimeEntry(timeEntry,projectId,issueId,userId,spentOn))
+        SoftReference<TimeEntry> softReference = timeEntries.get(i);
+        if ((softReference == null) || (softReference.get() == null))
         {
-//Dprintf.dprintf("calendar0=%s calendar1=%s",calendar0,calendar1);
-          timeEntryMap.put(timeEntry.id,timeEntry);
+  //Dprintf.dprintf("fill %d length %d",i,ENTRY_LIMIT);
+          // fill time entry array (get as much data a possible with single request)
+          fillTimeEntry(i,ENTRY_LIMIT);
+
+          // get soft-reference for entry
+          softReference = timeEntries.get(i);
         }
 
-        // stop when date is found before given spent date (Note: assume time entries are sorted descended)
-        if (timeEntry.spentOn.isBefore(spentOn))
+        // get time entry
+        if ((softReference != null) && (softReference.get() != null))
         {
-//Dprintf.dprintf("stop %s",timeEntry);
-          break;
+          TimeEntry timeEntry = softReference.get();
+
+          if (matchTimeEntry(timeEntry,projectId,issueId,userId,spentOn))
+          {
+  //Dprintf.dprintf("calendar0=%s calendar1=%s",calendar0,calendar1);
+            timeEntryMap.put(timeEntry.id,timeEntry);
+          }
+
+          // stop when date is found before given spent date (Note: assume time entries are sorted descended)
+          if (timeEntry.spentOn.isBefore(spentOn))
+          {
+  //Dprintf.dprintf("stop %s",timeEntry);
+            break;
+          }
         }
       }
     }
@@ -1703,34 +1708,37 @@ public class Redmine
     updateTimeEntryData();
 
     // get data
-    for (int i = 0; i < timeEntries.size(); i++)
+    synchronized(timeEntries)
     {
-      // get soft-reference for entry
-      SoftReference<TimeEntry> softReference = timeEntries.get(i);
-      if ((softReference == null) || (softReference.get() == null))
+      for (int i = 0; i < timeEntries.size(); i++)
       {
-        // fill time entry array (get as much data a possible with single request)
-        fillTimeEntry(i,ENTRY_LIMIT);
-
         // get soft-reference for entry
-        softReference = timeEntries.get(i);
-      }
-
-      // get time entry
-      if ((softReference != null) && (softReference.get() != null))
-      {
-        TimeEntry timeEntry = softReference.get();
-
-        if (matchTimeEntry(timeEntry,projectId,issueId,userId,spentOn))
+        SoftReference<TimeEntry> softReference = timeEntries.get(i);
+        if ((softReference == null) || (softReference.get() == null))
         {
-          n++;
+          // fill time entry array (get as much data a possible with single request)
+          fillTimeEntry(i,ENTRY_LIMIT);
+
+          // get soft-reference for entry
+          softReference = timeEntries.get(i);
         }
 
-        // stop when date is found before given spent date (Note: assume time entries are sorted descended)
-        if (timeEntry.spentOn.isBefore(spentOn))
+        // get time entry
+        if ((softReference != null) && (softReference.get() != null))
         {
-//Dprintf.dprintf("stop %s",timeEntry);
-          break;
+          TimeEntry timeEntry = softReference.get();
+
+          if (matchTimeEntry(timeEntry,projectId,issueId,userId,spentOn))
+          {
+            n++;
+          }
+
+          // stop when date is found before given spent date (Note: assume time entries are sorted descended)
+          if (timeEntry.spentOn.isBefore(spentOn))
+          {
+  //Dprintf.dprintf("stop %s",timeEntry);
+            break;
+          }
         }
       }
     }
@@ -1820,36 +1828,39 @@ public class Redmine
     updateTimeEntryData();
 
     // get data
-    for (int i = 0; i < timeEntries.size(); i++)
+    synchronized(timeEntries)
     {
-      // get soft-reference for entry
-      SoftReference<TimeEntry> softReference = timeEntries.get(i);
-      if ((softReference == null) || (softReference.get() == null))
+      for (int i = 0; i < timeEntries.size(); i++)
       {
-        // fill time entry array (get as much data a possible with single request)
-        fillTimeEntry(i,ENTRY_LIMIT);
-
         // get soft-reference for entry
-        softReference = timeEntries.get(i);
-      }
-
-      // get time entry
-      if ((softReference != null) && (softReference.get() != null))
-      {
-        TimeEntry timeEntry = softReference.get();
-
-        // match entry
-        if (matchTimeEntry(timeEntry,projectId,issueId,userId,spentOn))
+        SoftReference<TimeEntry> softReference = timeEntries.get(i);
+        if ((softReference == null) || (softReference.get() == null))
         {
-//Dprintf.dprintf("add %s: %f",timeEntry.spentOn,timeEntry.hours);
-          hoursSum += timeEntry.hours;
+          // fill time entry array (get as much data a possible with single request)
+          fillTimeEntry(i,ENTRY_LIMIT);
+
+          // get soft-reference for entry
+          softReference = timeEntries.get(i);
         }
 
-        // stop when date is found before given spent date (Note: assume time entries are sorted descended)
-        if (timeEntry.spentOn.isBefore(spentOn))
+        // get time entry
+        if ((softReference != null) && (softReference.get() != null))
         {
-//Dprintf.dprintf("stop %s",timeEntry);
-          break;
+          TimeEntry timeEntry = softReference.get();
+
+          // match entry
+          if (matchTimeEntry(timeEntry,projectId,issueId,userId,spentOn))
+          {
+  //Dprintf.dprintf("add %s: %f",timeEntry.spentOn,timeEntry.hours);
+            hoursSum += timeEntry.hours;
+          }
+
+          // stop when date is found before given spent date (Note: assume time entries are sorted descended)
+          if (timeEntry.spentOn.isBefore(spentOn))
+          {
+  //Dprintf.dprintf("stop %s",timeEntry);
+            break;
+          }
         }
       }
     }
@@ -1921,35 +1932,38 @@ public class Redmine
 
     // create array
     ArrayList<TimeEntry> filteredTimeEntries = new ArrayList<TimeEntry>();
-    for (int i = 0; i < timeEntries.size(); i++)
+    synchronized(timeEntries)
     {
-      // get soft-reference for entry
-      SoftReference<TimeEntry> softReference = timeEntries.get(i);
-      if ((softReference == null) || (softReference.get() == null))
+      for (int i = 0; i < timeEntries.size(); i++)
       {
-        // fill time entry array (get as much data a possible with single request)
-        fillTimeEntry(i,ENTRY_LIMIT);
-
         // get soft-reference for entry
-        softReference = timeEntries.get(i);
-      }
-
-      // get time entry
-      if ((softReference != null) && (softReference.get() != null))
-      {
-        TimeEntry timeEntry = softReference.get();
-//Dprintf.dprintf("timeEntry=%s",timeEntry);
-
-        if (matchTimeEntry(timeEntry,projectId,issueId,userId,spentOn))
+        SoftReference<TimeEntry> softReference = timeEntries.get(i);
+        if ((softReference == null) || (softReference.get() == null))
         {
-//Dprintf.dprintf("add timeEntry=%s",timeEntry);
-          filteredTimeEntries.add(timeEntry);
+          // fill time entry array (get as much data a possible with single request)
+          fillTimeEntry(i,ENTRY_LIMIT);
+
+          // get soft-reference for entry
+          softReference = timeEntries.get(i);
         }
 
-        // stop when date is found before given spent date (Note: assume time entries are sorted descended)
-        if ((spentOn != null) && timeEntry.spentOn.isBefore(spentOn))
+        // get time entry
+        if ((softReference != null) && (softReference.get() != null))
         {
-          break;
+          TimeEntry timeEntry = softReference.get();
+  //Dprintf.dprintf("timeEntry=%s",timeEntry);
+
+          if (matchTimeEntry(timeEntry,projectId,issueId,userId,spentOn))
+          {
+  //Dprintf.dprintf("add timeEntry=%s",timeEntry);
+            filteredTimeEntries.add(timeEntry);
+          }
+
+          // stop when date is found before given spent date (Note: assume time entries are sorted descended)
+          if ((spentOn != null) && timeEntry.spentOn.isBefore(spentOn))
+          {
+            break;
+          }
         }
       }
     }
@@ -1997,19 +2011,23 @@ public class Redmine
   public synchronized TimeEntry getTimeEntryAt(int index)
     throws RedmineException
   {
-    SoftReference<TimeEntry> softReference = timeEntries.get(index);
-    if (softReference == null)
+    SoftReference<TimeEntry> softReference;
+    synchronized(timeEntries)
     {
-Dprintf.dprintf("todo: get at index");
-      getTimeEntries(ID_ANY,ID_ANY,ID_ANY,null);
-
       softReference = timeEntries.get(index);
       if (softReference == null)
       {
-Dprintf.dprintf("todo: get at index");
+  Dprintf.dprintf("todo: get at index");
         getTimeEntries(ID_ANY,ID_ANY,ID_ANY,null);
 
         softReference = timeEntries.get(index);
+        if (softReference == null)
+        {
+  Dprintf.dprintf("todo: get at index");
+          getTimeEntries(ID_ANY,ID_ANY,ID_ANY,null);
+
+          softReference = timeEntries.get(index);
+        }
       }
     }
 
@@ -2125,22 +2143,28 @@ Dprintf.dprintf("required?");
    */
   public void clearTimeEntryCache(TimeEntry timeEntry)
   {
-    for (int i = 0; i < timeEntries.size(); i++)
+    synchronized(timeEntries)
     {
-      timeEntries.set(i,TIME_ENTRY_NULL);
+      for (int i = 0; i < timeEntries.size(); i++)
+      {
+        timeEntries.set(i,TIME_ENTRY_NULL);
+      }
+      timeEntriesUpdateTimeStamp = 0L;
     }
-    timeEntriesUpdateTimeStamp = 0L;
   }
 
   /** clear time entry cache
    */
   public void clearTimeEntryCache()
   {
-    for (int i = 0; i < timeEntries.size(); i++)
+    synchronized(timeEntries)
     {
-      timeEntries.set(i,TIME_ENTRY_NULL);
+      for (int i = 0; i < timeEntries.size(); i++)
+      {
+        timeEntries.set(i,TIME_ENTRY_NULL);
+      }
+      timeEntriesUpdateTimeStamp = 0L;
     }
-    timeEntriesUpdateTimeStamp = 0L;
   }
 
   /** clear time entry hours sum cache
@@ -2236,7 +2260,7 @@ Dprintf.dprintf("required?");
         rootElement.appendChild(element);
 
         element = document.createElement("spent_on");
-        element.appendChild(document.createTextNode(DATE_FORMAT.format(timeEntry.spentOn)));
+        element.appendChild(document.createTextNode(timeEntry.spentOn.toString(DATE_FORMAT)));
         rootElement.appendChild(element);
 
         element = document.createElement("hours");
@@ -3133,26 +3157,29 @@ Dprintf.dprintf("required?");
   {
     if (System.currentTimeMillis() > (timeEntriesUpdateTimeStamp+Settings.cacheExpireTime*1000))
     {
-      // get total number of time entries
-      int timeEntryCount = getDataLength("/time_entries","time_entry");
-      timeEntries.ensureCapacity(timeEntryCount);
-      for (int i = timeEntries.size(); i < timeEntryCount; i++)
+      synchronized(timeEntries)
       {
-        timeEntries.add(TIME_ENTRY_NULL);
-      }
-
-      // get date of first time entry
-      timeEntryStartDate = new Date();
-      getData("/time_entries","time_entry",timeEntryCount-1,1,new ParseElementHandler<TimeEntry>()
-      {
-        public void data(Element element)
+        // get total number of time entries
+        int timeEntryCount = getDataLength("/time_entries","time_entry");
+        timeEntries.ensureCapacity(timeEntryCount);
+        for (int i = timeEntries.size(); i < timeEntryCount; i++)
         {
-          timeEntryStartDate = getDateValue(element,"spent_on");
-//Dprintf.dprintf("timeEntryStartDate=%s",timeEntryStartDate);
+          timeEntries.add(TIME_ENTRY_NULL);
         }
-      });
 
-      timeEntriesUpdateTimeStamp = System.currentTimeMillis();
+        // get date of first time entry
+        timeEntryStartDate = new Date();
+        getData("/time_entries","time_entry",timeEntryCount-1,1,new ParseElementHandler<TimeEntry>()
+        {
+          public void data(Element element)
+          {
+            timeEntryStartDate = getDateValue(element,"spent_on");
+  //Dprintf.dprintf("timeEntryStartDate=%s",timeEntryStartDate);
+          }
+        });
+
+        timeEntriesUpdateTimeStamp = System.currentTimeMillis();
+      }
     }
   }
 
