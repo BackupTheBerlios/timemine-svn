@@ -1060,7 +1060,7 @@ exception.printStackTrace();
         Widgets.layout(composite,1,1,TableLayoutData.WE,0,2);
         {
           widgetStatusComposite = Widgets.newComposite(composite);
-          widgetStatusComposite.setLayout(new TableLayout(0.0,0.0}));
+          widgetStatusComposite.setLayout(new TableLayout(0.0,0.0));
           Widgets.layout(widgetStatusComposite,0,0,TableLayoutData.WE);
           {
           }
