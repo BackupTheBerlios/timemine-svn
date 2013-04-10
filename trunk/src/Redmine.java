@@ -53,6 +53,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
@@ -1106,7 +1107,7 @@ public class Redmine
   {
     if (userMap.size() <= 0)
     {
-      // ger user data
+      // get user data
       final ArrayList<User> userList = new ArrayList<User>();
       getData("/users","user",new ParseElementHandler<User>()
       {
@@ -1161,14 +1162,15 @@ public class Redmine
   }
 
   /** get Redmine trackers
+   * @param forceRefresh true to force refresh of data
    * @return tracker hash map <id,tracker>
    */
-  public synchronized SoftHashMap<Integer,Tracker> getTrackers()
+  public synchronized SoftHashMap<Integer,Tracker> getTrackers(boolean forceRefresh)
     throws RedmineException
   {
-    if (trackerMap.size() <= 0)
+    if ((trackerMap.size() <= 0) || forceRefresh)
     {
-      // ger user data
+      // get tracker data
       final ArrayList<Tracker> trackerList = new ArrayList<Tracker>();
       getData("/trackers","tracker",new ParseElementHandler<Tracker>()
       {
@@ -1200,6 +1202,16 @@ public class Redmine
     return trackerMap;
   }
 
+  /** get Redmine trackers as an array
+   * @return tracker array
+   */
+  public Tracker[] getTrackerArray()
+    throws RedmineException
+  {
+    getTrackers(false);
+    return trackerMap.values().toArray(new Redmine.Tracker[trackerMap.size()]);
+  }
+
   /** get tracker
    * @param trackerId tracker id
    * @return tracker
@@ -1210,7 +1222,7 @@ public class Redmine
     Tracker tracker = trackerMap.get(trackerId);
     if (tracker == null)
     {
-      getTrackers();
+      getTrackers(false);
       tracker = trackerMap.get(trackerId);
     }
 
@@ -1237,14 +1249,15 @@ public class Redmine
   }
 
   /** get Redmine status
+   * @param forceRefresh true to force refresh of data
    * @return status hash map <id,status>
    */
-  public SoftHashMap<Integer,Status> getStatus()
+  public SoftHashMap<Integer,Status> getStatus(boolean forceRefresh)
     throws RedmineException
   {
-    if (statusMap.size() <= 0)
+    if ((statusMap.size() <= 0) || forceRefresh)
     {
-      // ger user data
+      // get status data
       final ArrayList<Status> statusList = new ArrayList<Status>();
       getData("/issue_statuses","issue_status",new ParseElementHandler<Status>()
       {
@@ -1276,6 +1289,16 @@ public class Redmine
     return statusMap;
   }
 
+  /** get Redmine status as an array
+   * @return status array
+   */
+  public Status[] getStatusArray()
+    throws RedmineException
+  {
+    getStatus(false);
+    return statusMap.values().toArray(new Redmine.Status[statusMap.size()]);
+  }
+
   /** get status
    * @param statusId status id
    * @return status
@@ -1286,7 +1309,7 @@ public class Redmine
     Status status = statusMap.get(statusId);
     if (status == null)
     {
-      getStatus();
+      getStatus(false);
       status = statusMap.get(statusId);
     }
 
@@ -1320,7 +1343,7 @@ public class Redmine
   {
     if (priorityMap.size() <= 0)
     {
-      // ger user data
+      // get priority data
       final ArrayList<Priority> priorityList = new ArrayList<Priority>();
       getData("/enumerations/issue_priorities","issue_priority",new ParseElementHandler<Priority>()
       {
@@ -1389,14 +1412,15 @@ public class Redmine
   }
 
   /** get Redmine activities
+   * @param forceRefresh true to force refresh of data
    * @return activity hash map <id,activity>
    */
-  public synchronized SoftHashMap<Integer,Activity> getActivities()
+  public synchronized SoftHashMap<Integer,Activity> getActivities(boolean forceRefresh)
     throws RedmineException
   {
-    if (activityMap.size() <= 0)
+    if ((activityMap.size() <= 0) || forceRefresh)
     {
-      // ger user data
+      // get activity data
       final ArrayList<Activity> activityList = new ArrayList<Activity>();
       getData("/enumerations/time_entry_activities","time_entry_activity",new ParseElementHandler<Activity>()
       {
@@ -1435,7 +1459,7 @@ public class Redmine
   public Activity[] getActivityArray()
     throws RedmineException
   {
-    getActivities();
+    getActivities(false);
     return activityMap.values().toArray(new Redmine.Activity[activityMap.size()]);
   }
 
@@ -1468,7 +1492,7 @@ public class Redmine
       Activity activity = activityMap.get(activityId);
       if (activity == null)
       {
-        getActivities();
+        getActivities(false);
         activity = activityMap.get(activityId);
       }
 
@@ -1481,14 +1505,15 @@ public class Redmine
   }
 
   /** get Redmine projects
+   * @param forceRefresh true to force refresh of data
    * @return project hash map <id,project>
    */
-  public synchronized SoftHashMap<Integer,Project> getProjects()
+  public synchronized SoftHashMap<Integer,Project> getProjects(boolean forceRefresh)
     throws RedmineException
   {
-    if (projectMap.size() <= 0)
+    if ((projectMap.size() <= 0) || forceRefresh)
     {
-      // ger user data
+      // get projects data
       final ArrayList<Project> projectList = new ArrayList<Project>();
       getData("/projects","project",new ParseElementHandler<Project>()
       {
@@ -1534,7 +1559,7 @@ public class Redmine
   public Project[] getProjectArray()
     throws RedmineException
   {
-    getProjects();
+    getProjects(false);
     return projectMap.values().toArray(new Redmine.Project[projectMap.size()]);
   }
 
@@ -1549,7 +1574,7 @@ public class Redmine
       Project project = projectMap.get(projectId);
       if (project == null)
       {
-        getProjects();
+        getProjects(false);
         project = projectMap.get(projectId);
       }
 
@@ -1564,12 +1589,13 @@ public class Redmine
   /** get Redmine issues
    * @return issue hash map <id,issue>
    */
-  public synchronized SoftHashMap<Integer,Issue> getIssues()
+  public synchronized SoftHashMap<Integer,Issue> getIssues(boolean forceRefresh)
     throws RedmineException
   {
-    if (issueMap.size() <= 0)
+    if ((issueMap.size() <= 0) || forceRefresh)
     {
-      // get issues
+new Throwable().printStackTrace();
+    // get issues
       final ArrayList<Issue> issueList = new ArrayList<Issue>();
       getData("/issues","issue",new ParseElementHandler<Issue>()
       {
@@ -1624,7 +1650,8 @@ public class Redmine
   public Issue[] getIssueArray(int projectId)
     throws RedmineException
   {
-    getIssues();
+    getIssues(false);
+
     ArrayList<Issue> issueList = new ArrayList<Issue>();
     synchronized(issueMap)
     {
@@ -1651,7 +1678,7 @@ public class Redmine
         issue = issueMap.get(issueId);
         if (issue == null)
         {
-          getIssues();
+          getIssues(false);
           issue = issueMap.get(issueId);
         }
       }
@@ -2252,20 +2279,6 @@ Dprintf.dprintf("required?");
     }
   }
 
-  /** clear all caches
-   */
-  public void clearCaches()
-  {
-    clearUserCache();
-    clearTrackerCache();
-    clearStatusCache();
-    clearPriorityCache();
-    clearActivityCache();
-    clearProjectCache();
-    clearIssueCache();
-    clearTimeEntryCache();
-  }
-
   /** add time entry
    * @param timeEntry time entry to add
    */
@@ -2634,6 +2647,7 @@ Dprintf.dprintf("required?");
       // output data
       TransformerFactory transformerFactory = TransformerFactory.newInstance();
       Transformer transformer = transformerFactory.newTransformer();
+      transformer.setOutputProperty(OutputKeys.ENCODING,"UTF-8");
       DOMSource domSource = new DOMSource(document);
       if (Settings.debugFlag)
       {
@@ -2739,6 +2753,7 @@ Dprintf.dprintf("required?");
       // output data
       TransformerFactory transformerFactory = TransformerFactory.newInstance();
       Transformer transformer = transformerFactory.newTransformer();
+      transformer.setOutputProperty(OutputKeys.ENCODING,"UTF-8");
       DOMSource domSource = new DOMSource(document);
       if (Settings.debugFlag)
       {
