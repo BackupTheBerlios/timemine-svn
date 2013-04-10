@@ -316,6 +316,7 @@ public class Timemine
   public static ColorData              COLOR_TIME_ENTRIES_VACATION;
 
   // images
+  public static Image                  IMAGE_SPLASH_SCREEN;
   public static Image                  IMAGE_PROGRAM_ICON;
 
   // cursors
@@ -353,6 +354,9 @@ public class Timemine
   private Shell                                  shell;
   private Tray                                   tray;
   private TrayItem                               trayItem;
+
+  private Shell                                  widgetSplashScreen;
+  private Label                                  widgetSplashStatus;
 
   private TabFolder                              widgetTabFolder;
   private Composite                              widgetTabToday;
@@ -627,6 +631,7 @@ exception.printStackTrace();
     COLOR_TIME_ENTRIES_VACATION   = new ColorData(Settings.colorTimeEntriesVacation);
 
     // get images
+    IMAGE_SPLASH_SCREEN           = Widgets.loadImage(display,"splash-screen.png");
     IMAGE_PROGRAM_ICON            = Widgets.loadImage(display,"program-icon.png");
 
     // get cursors
@@ -745,6 +750,7 @@ exception.printStackTrace();
 
     // create window
     shell = new Shell(display,SWT.SHELL_TRIM);
+    shell.setVisible(false);
     shell.setText("Timemine");
     shell.setImage(IMAGE_PROGRAM_ICON);
     shell.setLayout(new TableLayout(new double[]{1.0,0.0,0.0},1.0));
@@ -1073,7 +1079,7 @@ exception.printStackTrace();
           widgetSpentHourFraction.setTextLimit(2);
           widgetSpentHourFraction.setIncrement(1);
           widgetSpentHourFraction.setSelection(0);
-          Widgets.layout(widgetSpentHourFraction,0,0,TableLayoutData.WE);
+          Widgets.layout(widgetSpentHourFraction,0,0,TableLayoutData.WE,0,0,0,0,40,SWT.DEFAULT);
           widgetSpentHourFraction.setToolTipText("New time entry spent hours.");
 
           label = Widgets.newLabel(composite,"h");
@@ -1083,7 +1089,7 @@ exception.printStackTrace();
           widgetSpentMinuteFraction.setSelection(Settings.minTimeDelta);
           widgetSpentMinuteFraction.setTextLimit(2);
           widgetSpentMinuteFraction.setIncrement(Settings.minTimeDelta);
-          Widgets.layout(widgetSpentMinuteFraction,0,2,TableLayoutData.WE);
+          Widgets.layout(widgetSpentMinuteFraction,0,2,TableLayoutData.WE,0,0,0,0,40,SWT.DEFAULT);
           widgetSpentMinuteFraction.setToolTipText("New time entry spent minutes.");
 
           label = Widgets.newLabel(composite,"min");
@@ -2028,13 +2034,6 @@ Dprintf.dprintf("");
     {
       trayItem = new TrayItem (tray, SWT.NONE);
       trayItem.setImage(IMAGE_PROGRAM_ICON);
-      trayItem.addListener(SWT.Show, new Listener()
-      {
-        public void handleEvent (Event event)
-        {
-          System.out.println("show");
-        }
-      });
       trayItem.setToolTipText("Timemine - Redmine time utility");
       trayItem.addSelectionListener(new SelectionListener()
       {
@@ -2090,6 +2089,53 @@ Dprintf.dprintf("");
    */
   private void createEventHandlers()
   {
+  }
+
+  /** open splash screen
+   */
+  private void openSplashScreen()
+  {
+    final int SPLASH_WIDTH  = 280;
+    final int SPLASH_HEIGHT = 180;
+
+    Control control;
+
+    widgetSplashScreen = new Shell(SWT.ON_TOP);
+    Rectangle bounds = display.getPrimaryMonitor().getBounds();
+    widgetSplashScreen.setLocation((bounds.width-SPLASH_WIDTH)/2,(bounds.height-SPLASH_HEIGHT)/2);
+    widgetSplashScreen.setSize(SPLASH_WIDTH,SPLASH_HEIGHT);
+    widgetSplashScreen.setLayout(new TableLayout(new double[]{1.0,0.0},new double[]{1.0,0.0}));
+    {
+      control = Widgets.newImage(widgetSplashScreen,IMAGE_SPLASH_SCREEN,SWT.RIGHT);
+      Widgets.layout(control,0,0,TableLayoutData.NSWE,0,0,5,5);
+
+      widgetSplashStatus = Widgets.newLabel(widgetSplashScreen);
+      Widgets.layout(widgetSplashStatus,1,0,TableLayoutData.WE,2,0,5,5,SWT.DEFAULT,30);
+    }
+    widgetSplashScreen.open();
+    display.update();
+  }
+
+  /** close splash screen
+   */
+  private void closeSplashScreen()
+  {
+    widgetSplashScreen.close();
+  }
+
+  /** update status info
+   * @param widget widget
+   * @param text splash screen status text
+   */
+  private void updateStatus(final String text)
+  {
+    display.syncExec(new Runnable()
+    {
+      public void run()
+      {
+        if (!widgetSplashStatus.isDisposed()) widgetSplashStatus.setText(text);
+      }
+    });
   }
 
   /** init all
@@ -2153,13 +2199,16 @@ Dprintf.dprintf("");
     // add watchdog for loaded classes/JARs
     initClassesWatchDog();
 
+    // open spash screen
+    openSplashScreen();
+
     // create main window and menu
     createWindow();
     createMenu();
     createTrayItem();
     createEventHandlers();
 
-    // start timer to refresh data
+    // define refresh tasks
     refreshTask = new TimerTask()
     {
       public void run()
@@ -2172,6 +2221,14 @@ Dprintf.dprintf("");
         {
           // clear caches
           redmine.clearCaches();
+
+          // refresh data
+          updateStatus("Get projects...");
+          redmine.getProjects();
+          updateStatus("Get activities...");
+          redmine.getActivities();
+          updateStatus("Get issues...");
+          redmine.getIssues();
 
           // get projects, activities
           final Redmine.Project[]  projects   = redmine.getProjectArray();
@@ -2199,7 +2256,7 @@ Dprintf.dprintf("");
             }
           });
 
-          // refresh project list, activity list, time entry table
+          // refresh project list, activity list
           display.syncExec(new Runnable()
           {
             public void run()
@@ -2231,21 +2288,18 @@ Dprintf.dprintf("");
         }
       }
     };
-    refreshTask.run();
-    refreshTimer = new Timer();
-    refreshTimer.schedule(refreshTask,REFRESH_TIME*1000L,REFRESH_TIME*1000L);
-
     refreshTodayTimeEntriesTask = new TimerTask()
     {
       public void run()
       {
         if (Settings.debugFlag)
         {
-          System.err.println("DEBUG: Refresh data");
+          System.err.println("DEBUG: Refresh today time entries");
         }
         try
         {
           // get today time entries
+          updateStatus("Get today time entries...");
           final SoftHashMap<Integer,Redmine.TimeEntry> timeEntryMap = redmine.getTimeEntries(redmine.today());
 //Dprintf.dprintf("timeEntryMap.size()=%d",timeEntryMap.size());
 
@@ -2287,17 +2341,13 @@ Dprintf.dprintf("");
         }
       }
     };
-    refreshTodayTimeEntriesTask.run();
-    refreshTodayTimeEntryTimer = new Timer();
-    refreshTodayTimeEntryTimer.schedule(refreshTodayTimeEntriesTask,10*1000L,10*1000L);
-
     refreshTimeEntriesTask = new TimerTask()
     {
       public void run()
       {
         if (Settings.debugFlag)
         {
-          System.err.println("DEBUG: Refresh time entry data");
+          System.err.println("DEBUG: Refresh time entries");
         }
         try
         {
@@ -2331,9 +2381,45 @@ Dprintf.dprintf("");
         }
       }
     };
-    refreshTimeEntriesTask.run();
-    refreshTimeEntryTimer = new Timer();
-    refreshTimeEntryTimer.schedule(refreshTimeEntriesTask,10*1000L,10*1000L);
+
+    // init data
+    Thread backgroundInit = new Thread()
+    {
+      public void run()
+      {
+        // get initial data
+        refreshTask.run();
+        refreshTodayTimeEntriesTask.run();
+        refreshTimeEntriesTask.run();
+
+        // start refresh timer tasks
+        refreshTimer = new Timer();
+        refreshTimer.schedule(refreshTask,REFRESH_TIME*1000L,REFRESH_TIME*1000L);
+        refreshTodayTimeEntryTimer = new Timer();
+        refreshTodayTimeEntryTimer.schedule(refreshTodayTimeEntriesTask,10*1000L,10*1000L);
+        refreshTimeEntryTimer = new Timer();
+        refreshTimeEntryTimer.schedule(refreshTimeEntriesTask,10*1000L,10*1000L);
+
+        // close splash screen
+        display.syncExec(new Runnable()
+        {
+          public void run()
+          {
+            shell.setVisible(true);
+            closeSplashScreen();
+          }
+        });
+      }
+    };
+    backgroundInit.start();
+    while (!widgetSplashScreen.isDisposed())
+    {
+      if (!display.readAndDispatch())
+      {
+        display.sleep();
+      }
+    }
+    try { backgroundInit.join(); } catch (InterruptedException exception) { /* ignored */ }
   }
 
   /** done all
@@ -2341,8 +2427,8 @@ Dprintf.dprintf("");
   private void doneAll()
   {
     // shutdown running background tasks
-    refreshTimeEntryTimer.cancel();
-    refreshTodayTimeEntryTimer.cancel();
+    if (refreshTimeEntryTimer != null) refreshTimeEntryTimer.cancel();
+    if (refreshTodayTimeEntryTimer != null) refreshTodayTimeEntryTimer.cancel();
   }
 
   /** run application
@@ -2818,7 +2904,7 @@ Dprintf.dprintf("");
           widgetSpentHourFraction.setTextLimit(2);
           widgetSpentHourFraction.setIncrement(1);
           widgetSpentHourFraction.setSelection(timeEntry.getHourFraction());
-          Widgets.layout(widgetSpentHourFraction,0,1,TableLayoutData.WE,0,0,0,0,60,SWT.DEFAULT);
+          Widgets.layout(widgetSpentHourFraction,0,1,TableLayoutData.WE,0,0,0,0,40,SWT.DEFAULT);
           widgetSpentHourFraction.setToolTipText("Spent time hours.");
 
           label = Widgets.newLabel(subSubComposite,"h");
@@ -2828,7 +2914,7 @@ Dprintf.dprintf("");
           widgetSpentMinuteFraction.setTextLimit(2);
           widgetSpentMinuteFraction.setIncrement(Settings.minTimeDelta);
           widgetSpentMinuteFraction.setSelection(timeEntry.getMinuteFraction());
-          Widgets.layout(widgetSpentMinuteFraction,0,3,TableLayoutData.WE,0,0,0,0,60,SWT.DEFAULT);
+          Widgets.layout(widgetSpentMinuteFraction,0,3,TableLayoutData.WE,0,0,0,0,40,SWT.DEFAULT);
           widgetSpentMinuteFraction.setToolTipText("Spent time minutes.");
 
           label = Widgets.newLabel(subSubComposite,"min");
