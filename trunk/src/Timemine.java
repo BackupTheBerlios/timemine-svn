@@ -364,6 +364,7 @@ public class Timemine
 
   private Table                                  widgetTodayTimeEntryTable;
   private Combo                                  widgetProjects;
+  private Composite                              widgetStatusComposite;
   private Combo                                  widgetIssueIds;
   private Combo                                  widgetIssues;
   private Label                                  widgetIssueStatus;
@@ -1052,20 +1053,31 @@ exception.printStackTrace();
         Widgets.layout(widgetProjects,0,1,TableLayoutData.WE,0,2);
 
         label = Widgets.newLabel(group,"Issue:",SWT.NONE,ACCELERATOR_ISSUE);
-        Widgets.layout(label,1,0,TableLayoutData.W);
+        Widgets.layout(label,1,0,TableLayoutData.NW);
 
         composite = Widgets.newComposite(group);
-        composite.setLayout(new TableLayout(0.0,new double[]{0.0,1.0}));
+        composite.setLayout(new TableLayout(0.0,1.0));
         Widgets.layout(composite,1,1,TableLayoutData.WE,0,2);
         {
-          widgetIssueIds = Widgets.newSelect(composite,SWT.RIGHT);
-          Widgets.layout(widgetIssueIds,0,0,TableLayoutData.W,0,0,0,0,60,SWT.DEFAULT);
+          widgetStatusComposite = Widgets.newComposite(composite);
+          widgetStatusComposite.setLayout(new TableLayout(0.0,0.0}));
+          Widgets.layout(widgetStatusComposite,0,0,TableLayoutData.WE);
+          {
+          }
 
-          widgetIssues = Widgets.newSelect(composite);
-          Widgets.layout(widgetIssues,0,1,TableLayoutData.WE);
+          subComposite = Widgets.newComposite(composite);
+          subComposite.setLayout(new TableLayout(0.0,new double[]{0.0,1.0}));
+          Widgets.layout(subComposite,1,0,TableLayoutData.WE);
+          {
+            widgetIssueIds = Widgets.newSelect(subComposite,SWT.RIGHT);
+            Widgets.layout(widgetIssueIds,0,0,TableLayoutData.W,0,0,0,0,60,SWT.DEFAULT);
 
-          widgetIssueStatus = Widgets.newLabel(composite);
-          Widgets.layout(widgetIssueStatus,0,2,TableLayoutData.E,0,0,0,0,60,SWT.DEFAULT);
+            widgetIssues = Widgets.newSelect(subComposite);
+            Widgets.layout(widgetIssues,0,1,TableLayoutData.WE);
+
+            widgetIssueStatus = Widgets.newLabel(subComposite);
+            Widgets.layout(widgetIssueStatus,0,2,TableLayoutData.E,0,0,0,0,60,SWT.DEFAULT);
+          }
         }
 
         label = Widgets.newLabel(group,"Spent:",SWT.NONE,ACCELERATOR_SPENT);
@@ -2219,22 +2231,22 @@ Dprintf.dprintf("");
         }
         try
         {
-          // clear caches
-          redmine.clearCaches();
-
-          // refresh data
-          updateStatus("Get projects...");
-          redmine.getProjects();
-          updateStatus("Get activities...");
-          redmine.getActivities();
-          updateStatus("Get issues...");
-          redmine.getIssues();
+          // force refresh data
+          updateStatus("Get projects from server...");
+          redmine.getProjects(true);
+          updateStatus("Get status from server...");
+          redmine.getStatus(true);
+          updateStatus("Get activities from server...");
+          redmine.getActivities(true);
+          updateStatus("Get issues from server...");
+          redmine.getIssues(true);
 
           // get projects, activities
           final Redmine.Project[]  projects   = redmine.getProjectArray();
+          final Redmine.Status[]   status     = redmine.getStatusArray();
           final Redmine.Activity[] activities = redmine.getActivityArray();
 
-          // sort projects, activities
+          // sort projects, status, activities
           Arrays.sort(projects,new Comparator<Redmine.Project>()
           {
             public int compare(Redmine.Project project0, Redmine.Project project1)
@@ -2261,7 +2273,10 @@ Dprintf.dprintf("");
           {
             public void run()
             {
+              Button button;
+
               // show projects
+              int selectedProjectId = (projectIds != null) ? projectIds[widgetProjects.getSelectionIndex()] : -1;
               widgetProjects.removeAll();
               projectIds = new int[projects.length];
               for (int i = 0; i < projects.length; i++)
@@ -2269,8 +2284,17 @@ Dprintf.dprintf("");
                 widgetProjects.add(projects[i].name);
                 projectIds[i] = projects[i].id;
               }
+              if (selectedProjectId >= 0) widgetProjects.select(getIndex(projectIds,selectedProjectId));
+
+              // show status filter checkboxes
+              for (int i = 0; i < status.length; i++)
+              {
+                button = Widgets.newCheckbox(widgetStatusComposite,Integer.toString(i));
+                Widgets.layout(button,0,i,TableLayoutData.W);
+              }
 
               // show activities
+              int selectedActivityId = widgetActivities.getSelectionIndex();
               widgetActivities.removeAll();
               activityIds = new int[activities.length];
               for (int i = 0; i < activities.length; i++)
@@ -2279,6 +2303,7 @@ Dprintf.dprintf("");
                 if (activities[i].isDefault) widgetActivities.select(i);
                 activityIds[i] = activities[i].id;
               }
+              widgetActivities.select(getIndex(activityIds,selectedActivityId));
             }
           });
         }
@@ -2296,6 +2321,7 @@ Dprintf.dprintf("");
         {
           System.err.println("DEBUG: Refresh today time entries");
         }
+
         try
         {
           // get today time entries
@@ -2339,6 +2365,11 @@ Dprintf.dprintf("");
         {
           // ignored
         }
+
+        if (Settings.debugFlag)
+        {
+          System.err.println("DEBUG: Refresh today time entries done");
+        }
       }
     };
     refreshTimeEntriesTask = new TimerTask()
@@ -2349,12 +2380,13 @@ Dprintf.dprintf("");
         {
           System.err.println("DEBUG: Refresh time entries");
         }
+
         try
         {
           // get number ot time entry days
           final int timeEntryDays = (int)((System.currentTimeMillis()-redmine.getTimeEntryStartDate().getTime())/(24*60*60*1000));
 
-          // refreh today time entry table
+          // refresh today time entry table
           display.syncExec(new Runnable()
           {
             public void run()
@@ -2378,6 +2410,11 @@ Dprintf.dprintf("");
         catch (RedmineException exception)
         {
           // ignored
+        }
+
+        if (Settings.debugFlag)
+        {
+          System.err.println("DEBUG: Refresh time entries done");
         }
       }
     };
