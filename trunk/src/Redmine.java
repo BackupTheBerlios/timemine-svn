@@ -2410,9 +2410,9 @@ Dprintf.dprintf("required?");
 
   /** connect to server via http/https
    * @param urlString URL string
-   * @param arguments arguments or null
+   * @param arguments arguments
    */
-  private HttpURLConnection getConnection(String urlString, String arguments)
+  private HttpURLConnection getConnection(String urlString, String... arguments)
     throws RedmineException
   {
     HttpURLConnection connection = null;
@@ -2421,14 +2421,14 @@ Dprintf.dprintf("required?");
     {
       if (serverUseSSL)
       {
-        URL url = new URL("https://"+serverName+":"+serverPort+urlString+".xml"+((arguments != null) ? "?"+arguments : ""));
+        URL url = new URL("https://"+serverName+":"+serverPort+urlString+".xml"+((arguments != null) ? "?"+StringUtils.join(arguments,'&') : ""));
         HttpsURLConnection httpsConnection = (HttpsURLConnection)url.openConnection();
         httpsConnection.setHostnameVerifier(anyHostnameVerifier);
         connection = httpsConnection;
       }
       else
       {
-        URL url = new URL("http://"+serverName+":"+serverPort+urlString+".xml"+((arguments != null) ? "?"+arguments : ""));
+        URL url = new URL("http://"+serverName+":"+serverPort+urlString+".xml"+((arguments != null) ? "?"+StringUtils.join(arguments,'&') : ""));
         HttpURLConnection httpConnection = (HttpURLConnection)url.openConnection();
         connection = httpConnection;
       }
@@ -2451,7 +2451,7 @@ Dprintf.dprintf("required?");
   private HttpURLConnection getConnection(String urlString)
     throws RedmineException
   {
-    return getConnection(urlString,null);
+    return getConnection(urlString);
   }
 
   /** get data
@@ -2480,7 +2480,7 @@ Dprintf.dprintf("required?");
         DocumentBuilder        documentBuilder        = documentBuilderFactory.newDocumentBuilder();
 
         // get data from Redmine server
-        connection = getConnection(urlString,"offset="+offset+"&limit="+((length > 0) ? Math.min(length,ENTRY_LIMIT) : ENTRY_LIMIT));
+        connection = getConnection(urlString,"offset="+offset,"limit="+((length > 0) ? Math.min(length,ENTRY_LIMIT) : ENTRY_LIMIT));
         connection.setRequestMethod("GET");
         connection.setDoOutput(false);
         connection.setRequestProperty("Authorization",authorization);
