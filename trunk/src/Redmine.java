@@ -28,6 +28,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -1627,7 +1628,8 @@ new Throwable().printStackTrace();
         {
           issueList.add(issue);
         }
-      });
+      },
+      "sort:desc=created_on");
 
       // store into map
       synchronized(issueMap)
@@ -2460,8 +2462,9 @@ Dprintf.dprintf("required?");
    * @param offset start offset
    * @param length max. number of elements to get
    * @param parseElementHandler element handler
+   * @param additionalArguments additional arguments (optional)
    */
-  private void getData(String urlString, String name, int offset, int length, ParseElementHandler parseElementHandler)
+  private void getData(String urlString, String name, int offset, int length, ParseElementHandler parseElementHandler, String... additionalArguments)
     throws RedmineException
   {
     boolean done  = false;
@@ -2480,7 +2483,10 @@ Dprintf.dprintf("required?");
         DocumentBuilder        documentBuilder        = documentBuilderFactory.newDocumentBuilder();
 
         // get data from Redmine server
-        connection = getConnection(urlString,"offset="+offset,"limit="+((length > 0) ? Math.min(length,ENTRY_LIMIT) : ENTRY_LIMIT));
+        String[] arguments = Arrays.copyOf(additionalArguments,additionalArguments.length+2);
+        arguments[additionalArguments.length+0] = "offset="+offset;
+        arguments[additionalArguments.length+1] = "limit="+((length > 0) ? Math.min(length,ENTRY_LIMIT) : ENTRY_LIMIT);
+        connection = getConnection(urlString,arguments);
         connection.setRequestMethod("GET");
         connection.setDoOutput(false);
         connection.setRequestProperty("Authorization",authorization);
@@ -2559,23 +2565,25 @@ Dprintf.dprintf("required?");
    * @param name XML entry name
    * @param entityMap entity map for storage
    * @param parseElementHandler element handler
+   * @param additionalArguments additional arguments (optional)
    */
-  private void getData(String urlString, String name, ParseElementHandler parseElementHandler)
+  private void getData(String urlString, String name, ParseElementHandler parseElementHandler, String... additionalArguments)
     throws RedmineException
   {
-    getData(urlString,name,0,-1,parseElementHandler);
+    getData(urlString,name,0,-1,parseElementHandler,additionalArguments);
   }
 
   /** iterate over all data
    * @param urlString URL string
    * @param name XML entry name
    * @param parseElementHandler element handler
+   * @param additionalArguments additional arguments (optional)
    * @return result
    */
-  private Object iterateData(String urlString, String name, ParseElementHandler parseElementHandler)
+  private Object iterateData(String urlString, String name, ParseElementHandler parseElementHandler, String... additionalArguments)
     throws RedmineException
   {
-    getData(urlString,name,parseElementHandler);
+    getData(urlString,name,parseElementHandler,additionalArguments);
 
     return parseElementHandler.getResult();
   }
@@ -2614,8 +2622,9 @@ Dprintf.dprintf("required?");
    * @param entityMap entity map for storage
    * @param CreateHandler document create handler
    * @param ParseElementHandler element handler
+   * @param additionalArguments additional arguments (optional)
    */
-  private void postData(String urlString, String name, Entity entity, CreateHandler createHandler)
+  private void postData(String urlString, String name, Entity entity, CreateHandler createHandler, String... additionalArguments)
     throws RedmineException
   {
     HttpURLConnection connection = null;
@@ -2634,7 +2643,7 @@ Dprintf.dprintf("required?");
       createHandler.data(document,rootElement);
 
       // add data on Redmine server
-      connection = getConnection(urlString);
+      connection = getConnection(urlString,additionalArguments);
       connection.setRequestMethod("POST");
       connection.setDoOutput(true);
       connection.setRequestProperty("Content-Type","application/xml; charset=utf-8");
@@ -2720,8 +2729,9 @@ Dprintf.dprintf("required?");
    * @param entityMap entity map for storage
    * @param CreateHandler document create handler
    * @param ParseElementHandler element handler
+   * @param additionalArguments additional arguments (optional)
    */
-  private void putData(String urlString, String name, Entity entity, CreateHandler createHandler)
+  private void putData(String urlString, String name, Entity entity, CreateHandler createHandler, String... additionalArguments)
     throws RedmineException
   {
     HttpURLConnection connection = null;
@@ -2740,7 +2750,7 @@ Dprintf.dprintf("required?");
       createHandler.data(document,rootElement);
 
       // update data on Redmine server
-      connection = getConnection(urlString);
+      connection = getConnection(urlString,additionalArguments);
       connection.setRequestMethod("PUT");
       connection.setDoOutput(true);
       connection.setRequestProperty("Content-Type","application/xml; charset=utf-8");
@@ -2798,8 +2808,9 @@ Dprintf.dprintf("required?");
   /** delete data
    * @param urlString URL string
    * @param name XML entry name
+   * @param additionalArguments additional arguments (optional)
    */
-  private void deleteData(String urlString)
+  private void deleteData(String urlString, String... additionalArguments)
     throws RedmineException
   {
     HttpURLConnection connection = null;
@@ -2811,7 +2822,7 @@ Dprintf.dprintf("required?");
       DocumentBuilder        documentBuilder        = documentBuilderFactory.newDocumentBuilder();
 
       // delete data from Redmine server
-      connection = getConnection(urlString);
+      connection = getConnection(urlString,additionalArguments);
       connection.setRequestMethod("DELETE");
       connection.setDoOutput(true);
       connection.setRequestProperty("Content-Type","application/xml; charset=utf-8");
