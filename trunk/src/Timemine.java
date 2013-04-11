@@ -364,10 +364,10 @@ public class Timemine
 
   private Table                                  widgetTodayTimeEntryTable;
   private Combo                                  widgetProjects;
-  private Composite                              widgetStatusComposite;
   private Combo                                  widgetIssueIds;
   private Combo                                  widgetIssues;
   private Label                                  widgetIssueStatus;
+  private Menu                                   widgetIssueStatusFilters;
   private Spinner                                widgetSpentHourFraction;
   private Spinner                                widgetSpentMinuteFraction;
   private Combo                                  widgetActivities;
@@ -1053,31 +1053,36 @@ exception.printStackTrace();
         Widgets.layout(widgetProjects,0,1,TableLayoutData.WE,0,2);
 
         label = Widgets.newLabel(group,"Issue:",SWT.NONE,ACCELERATOR_ISSUE);
-        Widgets.layout(label,1,0,TableLayoutData.NW);
+        Widgets.layout(label,1,0,TableLayoutData.W);
 
         composite = Widgets.newComposite(group);
-        composite.setLayout(new TableLayout(0.0,1.0));
+        composite.setLayout(new TableLayout(0.0,new double[]{0.0,1.0,0.0}));
         Widgets.layout(composite,1,1,TableLayoutData.WE,0,2);
         {
-          widgetStatusComposite = Widgets.newComposite(composite);
-          widgetStatusComposite.setLayout(new TableLayout(0.0,0.0));
-          Widgets.layout(widgetStatusComposite,0,0,TableLayoutData.WE);
+          widgetIssueIds = Widgets.newSelect(composite,SWT.RIGHT);
+          Widgets.layout(widgetIssueIds,0,0,TableLayoutData.W,0,0,0,0,60,SWT.DEFAULT);
+
+          widgetIssues = Widgets.newSelect(composite);
+          Widgets.layout(widgetIssues,0,1,TableLayoutData.WE);
+
+          widgetIssueStatus = Widgets.newLabel(composite);
+          Widgets.layout(widgetIssueStatus,0,2,TableLayoutData.E,0,0,0,0,60,SWT.DEFAULT);
+          widgetIssueStatusFilters = Widgets.newPopupMenu(shell);
           {
+            menuItem = Widgets.addMenuCheckbox(widgetIssueStatusFilters,"Any");
+            menuItem.setSelection(true);
+            menuItem.addSelectionListener(new SelectionListener()
+            {
+              public void widgetDefaultSelected(SelectionEvent selectionEvent)
+              {
+              }
+              public void widgetSelected(SelectionEvent selectionEvent)
+              {
+    Dprintf.dprintf("");
+              }
+            });
           }
-
-          subComposite = Widgets.newComposite(composite);
-          subComposite.setLayout(new TableLayout(0.0,new double[]{0.0,1.0}));
-          Widgets.layout(subComposite,1,0,TableLayoutData.WE);
-          {
-            widgetIssueIds = Widgets.newSelect(subComposite,SWT.RIGHT);
-            Widgets.layout(widgetIssueIds,0,0,TableLayoutData.W,0,0,0,0,60,SWT.DEFAULT);
-
-            widgetIssues = Widgets.newSelect(subComposite);
-            Widgets.layout(widgetIssues,0,1,TableLayoutData.WE);
-
-            widgetIssueStatus = Widgets.newLabel(subComposite);
-            Widgets.layout(widgetIssueStatus,0,2,TableLayoutData.E,0,0,0,0,60,SWT.DEFAULT);
-          }
+          widgetIssueStatus.setMenu(widgetIssueStatusFilters);
         }
 
         label = Widgets.newLabel(group,"Spent:",SWT.NONE,ACCELERATOR_SPENT);
@@ -2273,8 +2278,6 @@ Dprintf.dprintf("");
           {
             public void run()
             {
-              Button button;
-
               // show projects
               int selectedProjectId = (projectIds != null) ? projectIds[widgetProjects.getSelectionIndex()] : -1;
               widgetProjects.removeAll();
@@ -2287,10 +2290,24 @@ Dprintf.dprintf("");
               if (selectedProjectId >= 0) widgetProjects.select(getIndex(projectIds,selectedProjectId));
 
               // show status filter checkboxes
+              MenuItem[] menuItems = widgetIssueStatusFilters.getItems();
+              for (int i = 1; i < menuItems.length; i++)
+              {
+                menuItems[i].dispose();
+              }
               for (int i = 0; i < status.length; i++)
               {
-                button = Widgets.newCheckbox(widgetStatusComposite,Integer.toString(i));
-                Widgets.layout(button,0,i,TableLayoutData.W);
+                MenuItem menuItem = Widgets.addMenuCheckbox(widgetIssueStatusFilters,status[i].name);
+                menuItem.addSelectionListener(new SelectionListener()
+                {
+                  public void widgetDefaultSelected(SelectionEvent selectionEvent)
+                  {
+                  }
+                  public void widgetSelected(SelectionEvent selectionEvent)
+                  {
+        Dprintf.dprintf("");
+                  }
+                });
               }
 
               // show activities
