@@ -1336,6 +1336,15 @@ public class Redmine
     }
   }
 
+  /** get status name
+   * @param statusId status id
+   * @return status name
+   */
+  public String getStatusName(int statusId)
+  {
+    return getStatusName(statusId,"");
+  }
+
   /** get Redmine priorities
    * @return priority hash map <id,priority>
    */
