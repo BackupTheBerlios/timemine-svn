@@ -317,21 +317,29 @@ public class Redmine
     public Date       startDate;
     public Date       dueDate;
     public int        doneRatio;
+    public int        assignedToId;
     public double     estimatedHours;
     public final Date createdOn;
     public Date       updateOn;
     public Date       closedOn;
 
-    /** create time entry
+    /** create issue entry
      * @param id time entry id
      * @param projectId project id
-     * @param issueId issue id
-     * @param userId user id
-     * @param activityId activity id
-     * @param hourse spent hours
-     * @param comments comments
+     * @param trackerId tracker id
+     * @param statusId status id
+     * @param priorityId priority id
+     * @param authorId author user id
+     * @param subject subject text
+     * @param description description text
+     * @param startDate start date
+     * @param dueDate due date
+     * @param assignedToId assigned to user id
+     * @param doneRatio done ration
+     * @param estimatedHours estimated hours
      * @param createdOn created-on date
      * @param updateOn update-on date
+     * @param closedOn closed-on date
      */
     Issue(int    id,
           int    projectId,
@@ -343,6 +351,7 @@ public class Redmine
           String description,
           Date   startDate,
           Date   dueDate,
+          int    assignedToId,
           int    doneRatio,
           double estimatedHours,
           Date   createdOn,
@@ -361,6 +370,7 @@ public class Redmine
       this.startDate      = startDate;
       this.dueDate        = dueDate;
       this.doneRatio      = doneRatio;
+      this.assignedToId   = assignedToId;
       this.estimatedHours = estimatedHours;
       this.createdOn      = createdOn;
       this.updateOn       = updateOn;
@@ -1604,7 +1614,7 @@ public class Redmine
   {
     if ((issueMap.size() <= 0) || forceRefresh)
     {
-new Throwable().printStackTrace();
+//new Throwable().printStackTrace();
     // get issues
       final ArrayList<Issue> issueList = new ArrayList<Issue>();
       getData("/issues","issue",new ParseElementHandler<Issue>()
@@ -1626,6 +1636,7 @@ new Throwable().printStackTrace();
                                   getDateValue(element,"start_date"),
                                   getDateValue(element,"due_date"),
                                   getIntValue(element,"done_ratio"),
+                                  getIntValue(element,"assigned_to_id"),
                                   getDoubleValue(element,"estimated_hours" ),
                                   getDateValue(element,"created_on"),
                                   getDateValue(element,"updated_on"),
