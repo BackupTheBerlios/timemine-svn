@@ -77,7 +77,7 @@ abstract class SettingValueAdapter<String,Value>
    * @param string string
    * @return value
    */
-  abstract public Value toValue(String string) throws Exception;
+  abstract public Value toValue(String string)throws Exception;
 
   /** convert to string
    * @param value value
@@ -107,7 +107,8 @@ public class Settings
      * @param string string
      * @return value
      */
-    public Point toValue(String string) throws Exception
+    public Point toValue(String string)
+      throws Exception
     {
       Point point = null;
 
@@ -123,7 +124,8 @@ public class Settings
      * @param value value
      * @return string
      */
-    public String toString(Point p) throws Exception
+    public String toString(Point p)
+      throws Exception
     {
       return String.format("%dx%d",p.x,p.y);
     }
@@ -199,7 +201,8 @@ public class Settings
      * @param string string
      * @return value
      */
-    public ColumnSizes toValue(String string) throws Exception
+    public ColumnSizes toValue(String string)
+      throws Exception
     {
       StringTokenizer tokenizer = new StringTokenizer(string,",");
       ArrayList<Integer> widthList = new ArrayList<Integer>();
@@ -214,7 +217,8 @@ public class Settings
      * @param value value
      * @return string
      */
-    public String toString(ColumnSizes columnSizes) throws Exception
+    public String toString(ColumnSizes columnSizes)
+      throws Exception
     {
       StringBuilder buffer = new StringBuilder();
       for (int width : columnSizes.width)
@@ -234,7 +238,8 @@ public class Settings
      * @param string string
      * @return value
      */
-    public Double toValue(String string) throws Exception
+    public Double toValue(String string)
+      throws Exception
     {
       double n = 0.0;
 
@@ -249,7 +254,8 @@ public class Settings
      * @param value value
      * @return string
      */
-    public String toString(Double n) throws Exception
+    public String toString(Double n)
+      throws Exception
     {
       return String.format("%d:%d",(int)Math.floor(n),(int)Math.floor(n*60)%60);
     }
@@ -309,7 +315,8 @@ public class Settings
      * @param string string
      * @return value
      */
-    public Color toValue(String string) throws Exception
+    public Color toValue(String string)
+      throws Exception
     {
       Color color = null;
 
@@ -344,7 +351,8 @@ public class Settings
      * @param value value
      * @return string
      */
-    public String toString(Color color) throws Exception
+    public String toString(Color color)
+      throws Exception
     {
       if      ((color.foreground != null) && (color.background != null))
       {
@@ -385,7 +393,8 @@ public class Settings
      * @param string string
      * @return value
      */
-    public Integer toValue(String string) throws Exception
+    public Integer toValue(String string)
+      throws Exception
     {
       int accelerator = 0;
       if (!string.isEmpty())
@@ -404,9 +413,41 @@ public class Settings
      * @param value value
      * @return string
      */
-    public String toString(Integer accelerator) throws Exception
+    public String toString(Integer accelerator)
+      throws Exception
     {
       return Widgets.menuAcceleratorToText(accelerator);
+    }
+  }
+
+  /** config value adapter String <-> id set
+   */
+  class SettingValueAdapterIds extends SettingValueAdapter<String,Integer>
+  {
+    /** convert to value
+     * @param string string
+     * @return value
+     */
+    public Integer toValue(String string)
+      throws Exception
+    {
+      int n = 0;
+      if (!string.isEmpty())
+      {
+        n = Integer.parseInt(string);
+      }
+
+      return n;
+    }
+
+    /** convert to string
+     * @param value value
+     * @return string
+     */
+    public String toString(Integer value)
+      throws Exception
+    {
+      return value.toString();
     }
   }
 
@@ -479,7 +520,8 @@ public class Settings
      * @param string string
      * @return value
      */
-    public VacationDate toValue(String string) throws Exception
+    public VacationDate toValue(String string)
+      throws Exception
     {
       return new VacationDate(string);
     }
@@ -488,7 +530,8 @@ public class Settings
      * @param value value
      * @return string
      */
-    public String toString(VacationDate vacationDate) throws Exception
+    public String toString(VacationDate vacationDate)
+      throws Exception
     {
       return vacationDate.toString();
     }
@@ -537,10 +580,11 @@ public class Settings
   @SettingValue(type=SettingValueAdapterHours.class)
   public static double                   requiredHoursPerDay                    = 8; // [h]
 
-  @SettingComment(text={"","Issue status filter"})
-  @SettingValue(name="issueStatusFilter")
-//  public static String[]                 issueStatusFilters                     = new String[0];
-  public static HashSet<Integer>         issueStatusFilterSet                   = new HashSet<Integer>();
+  @SettingComment(text={"","Issue status id filters"})
+  @SettingValue
+  public static boolean                  issueOwnFilter                         = false;
+  @SettingValue(name="issueStatusIdFilter", type=SettingValueAdapterIds.class)
+  public static HashSet<Integer>         issueStatusIdFilterSet                 = new HashSet<Integer>();
 
   // geometry
   @SettingComment(text={"","Geometry: <width>x<height>","Geometry columns: <width>,..."})
@@ -749,73 +793,28 @@ Dprintf.dprintf("field.getType()=%s",type);
                         }
                         else if (type == HashSet.class)
                         {
-                          type = type.getComponentType();
-                          if (type != null)
+                          if (SettingValueAdapter.class.isAssignableFrom(settingValue.type()))
                           {
-                            if      (SettingValueAdapter.class.isAssignableFrom(settingValue.type()))
+                            // instantiate config adapter class
+                            SettingValueAdapter settingValueAdapter;
+                            Class enclosingClass = settingValue.type().getEnclosingClass();
+                            if (enclosingClass == Settings.class)
                             {
-                              // instantiate config adapter class
-                              SettingValueAdapter settingValueAdapter;
-                              Class enclosingClass = settingValue.type().getEnclosingClass();
-                              if (enclosingClass == Settings.class)
-                              {
-                                Constructor constructor = settingValue.type().getDeclaredConstructor(Settings.class);
-                                settingValueAdapter = (SettingValueAdapter)constructor.newInstance(new Settings());
-                              }
-                              else
-                              {
-                                settingValueAdapter = (SettingValueAdapter)settingValue.type().newInstance();
-                              }
-
-                              // convert to value
-                              Object value = settingValueAdapter.toValue(string);
-                              HashSet<Object> hashSet = (HashSet<Object>)field.get(null);
-                              hashSet.add(value);
-                            }
-                            else if (type == Integer.class)
-                            {
-                              int value = Integer.parseInt(string);
-                              HashSet<Integer> hashSet = (HashSet<Integer>)field.get(null);
-                              hashSet.add(value);
-                            }
-                            else if (type == Long.class)
-                            {
-                              long value = Long.parseLong(string);
-                              HashSet<Long> hashSet = (HashSet<Long>)field.get(null);
-                              hashSet.add(value);
-                            }
-                            else if (type == Boolean.class)
-                            {
-                              boolean value = StringUtils.parseBoolean(string);
-                              HashSet<Boolean> hashSet = (HashSet<Boolean>)field.get(null);
-                              hashSet.add(value);
-                            }
-                            else if (type == String.class)
-                            {
-                              String value = StringUtils.unescape(string);
-                              HashSet<String> hashSet = (HashSet<String>)field.get(null);
-                              hashSet.add(value);
-                            }
-                            else if (type.isEnum())
-                            {
-                              Enum value = StringUtils.parseEnum(type,string);
-                              HashSet<Enum> hashSet = (HashSet<Enum>)field.get(null);
-                              hashSet.add(value);
-                            }
-                            else if (type == EnumSet.class)
-                            {
-                              EnumSet value = StringUtils.parseEnumSet(type,string);
-                              HashSet<EnumSet> hashSet = (HashSet<EnumSet>)field.get(null);
-                              hashSet.add(value);
+                              Constructor constructor = settingValue.type().getDeclaredConstructor(Settings.class);
+                              settingValueAdapter = (SettingValueAdapter)constructor.newInstance(new Settings());
                             }
                             else
                             {
-Dprintf.dprintf("field.getType()=%s",type);
+                              settingValueAdapter = (SettingValueAdapter)settingValue.type().newInstance();
                             }
+
+                            // convert to value
+                            Object value = settingValueAdapter.toValue(string);
+                            ((HashSet)field.get(null)).add(value);
                           }
                           else
                           {
-Dprintf.dprintf("field.getType()=null");
+Dprintf.dprintf("hashSet without value adapter");
                           }
                         }
                         else
@@ -1088,88 +1087,31 @@ Dprintf.dprintf("field.getType()=%s",type);
                 }
                 else if (type == HashSet.class)
                 {
-                  type = type.getComponentType();
-                  if     (type != null)
+                  if (SettingValueAdapter.class.isAssignableFrom(settingValue.type()))
                   {
-                    if      (SettingValueAdapter.class.isAssignableFrom(settingValue.type()))
+                    // instantiate config adapter class
+                    SettingValueAdapter settingValueAdapter;
+                    Class enclosingClass = settingValue.type().getEnclosingClass();
+                    if (enclosingClass == Settings.class)
                     {
-                      // instantiate config adapter class
-                      SettingValueAdapter settingValueAdapter;
-                      Class enclosingClass = settingValue.type().getEnclosingClass();
-                      if (enclosingClass == Settings.class)
-                      {
-                        Constructor constructor = settingValue.type().getDeclaredConstructor(Settings.class);
-                        settingValueAdapter = (SettingValueAdapter)constructor.newInstance(new Settings());
-                      }
-                      else
-                      {
-                        settingValueAdapter = (SettingValueAdapter)settingValue.type().newInstance();
-                      }
-
-                      // convert to string
-                      HashSet<Object> hashSet = (HashSet<Object>)field.get(null);
-                      for (Object object : hashSet)
-                      {
-                        String value = (String)settingValueAdapter.toString(object);
-                        output.printf("%s = %s\n",name,value);
-                      }
-                    }
-                    else if (type == Integer.class)
-                    {
-                      HashSet<Integer> hashSet = (HashSet<Integer>)field.get(null);
-                      for (int value : hashSet)
-                      {
-                        output.printf("%s = %d\n",name,value);
-                      }
-                    }
-                    else if (type == Long.class)
-                    {
-                      HashSet<Long> hashSet = (HashSet<Long>)field.get(null);
-                      for (long value : hashSet)
-                      {
-                        output.printf("%s = %ld\n",name,value);
-                      }
-                    }
-                    else if (type == Boolean.class)
-                    {
-                      HashSet<Boolean> hashSet = (HashSet<Boolean>)field.get(null);
-                      for (boolean value : hashSet)
-                      {
-                        output.printf("%s = %s\n",name,value ? "yes" : "no");
-                      }
-                    }
-                    else if (type == String.class)
-                    {
-                      HashSet<String> hashSet = (HashSet<String>)field.get(null);
-                      for (String value : hashSet)
-                      {
-                        output.printf("%s = %s\n",name,StringUtils.escape(value));
-                      }
-                    }
-                    else if (type.isEnum())
-                    {
-                      HashSet<Enum> hashSet = (HashSet<Enum>)field.get(null);
-                      for (Enum value : hashSet)
-                      {
-                        output.printf("%s = %s\n",name,value.toString());
-                      }
-                    }
-                    else if (type == EnumSet.class)
-                    {
-                      HashSet<EnumSet> hashSet = (HashSet<EnumSet>)field.get(null);
-                      for (EnumSet enumSet : hashSet)
-                      {
-                        output.printf("%s = %s\n",name,StringUtils.join(enumSet,","));
-                      }
+                      Constructor constructor = settingValue.type().getDeclaredConstructor(Settings.class);
+                      settingValueAdapter = (SettingValueAdapter)constructor.newInstance(new Settings());
                     }
                     else
                     {
-Dprintf.dprintf("field.getType()=%s",type);
+                      settingValueAdapter = (SettingValueAdapter)settingValue.type().newInstance();
+                    }
+
+                    // convert to string
+                    for (Object object : (HashSet)field.get(null))
+                    {
+                      String value = (String)settingValueAdapter.toString(object);
+                      output.printf("%s = %s\n",name,value);
                     }
                   }
                   else
                   {
-Dprintf.dprintf("type.getComponentType()=null");
+Dprintf.dprintf("hashSet without value adapter");
                   }
                 }
                 else
