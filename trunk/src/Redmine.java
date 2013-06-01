@@ -32,6 +32,8 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.ListIterator;
 import java.util.Locale;
 
 // SSL
@@ -773,7 +775,7 @@ public class Redmine
      */
     public String toString()
     {
-      return "TimeEntry { "+((id != ID_NONE) ? id : "none")+", "+((projectId != ID_NONE) ? projectId : "none")+", "+((issueId != ID_NONE) ? issueId : "none")+", "+((activityId != ID_NONE) ? activityId : "none")+", "+hours+", "+spentOn+", "+comments+" }";
+      return "TimeEntry { id="+((id != ID_NONE) ? id : "none")+", projectId="+((projectId != ID_NONE) ? projectId : "none")+", issueId="+((issueId != ID_NONE) ? issueId : "none")+", activityId="+((activityId != ID_NONE) ? activityId : "none")+", hours="+hours+", spentOn="+spentOn+", "+comments+" }";
     }
   }
 
@@ -1007,34 +1009,34 @@ public class Redmine
 
   // --------------------------- variables --------------------------------
 
-  private String                              serverName;
-  private int                                 serverPort;
-  private boolean                             serverUseSSL;
-  private String                              authorization;
-  private HostnameVerifier                    anyHostnameVerifier;
+  private String                               serverName;
+  private int                                  serverPort;
+  private boolean                              serverUseSSL;
+  private String                               authorization;
+  private HostnameVerifier                     anyHostnameVerifier;
 
-  private UpdateThread                        updateThread;
+  private UpdateThread                         updateThread;
 
-  private int                                 ownUserId;
+  private int                                  ownUserId;
 
-  private SoftHashMap<Integer,User>           userMap                    = new SoftHashMap<Integer,User>();
-  private SoftHashMap<Integer,Tracker>        trackerMap                 = new SoftHashMap<Integer,Tracker>();
-  private SoftHashMap<Integer,Status>         statusMap                  = new SoftHashMap<Integer,Status>();
-  private SoftHashMap<Integer,Priority>       priorityMap                = new SoftHashMap<Integer,Priority>();
-  private SoftHashMap<Integer,Activity>       activityMap                = new SoftHashMap<Integer,Activity>();
+  private SoftHashMap<Integer,User>            userMap                    = new SoftHashMap<Integer,User>();
+  private SoftHashMap<Integer,Tracker>         trackerMap                 = new SoftHashMap<Integer,Tracker>();
+  private SoftHashMap<Integer,Status>          statusMap                  = new SoftHashMap<Integer,Status>();
+  private SoftHashMap<Integer,Priority>        priorityMap                = new SoftHashMap<Integer,Priority>();
+  private SoftHashMap<Integer,Activity>        activityMap                = new SoftHashMap<Integer,Activity>();
 
   private SoftHashMap<Integer,Project>        projectMap                 = new SoftHashMap<Integer,Project>();
   private int                                 projectsCount              = 0;
 
-  private SoftHashMap<Integer,Issue>          issueMap                   = new SoftHashMap<Integer,Issue>();
-  private int                                 issuesCount                = 0;
+  private SoftHashMap<Integer,Issue>           issueMap                   = new SoftHashMap<Integer,Issue>();
+  private int                                  issuesCount                = 0;
 
-  private HashMap<Integer,Integer>            timeEntryIdMap             = new HashMap<Integer,Integer>();      // map id -> index
-  private HashMap<SpentOn,Integer>            timeEntrySpentOnMap        = new HashMap<SpentOn,Integer>();      // map spent-on date -> index
-  private ArrayList<SoftReference<TimeEntry>> timeEntries                = new ArrayList<SoftReference<TimeEntry>>();
-  private long                                timeEntriesUpdateTimeStamp = 0L;
-  private Date                                timeEntryStartDate;
-  private SoftHashMap<SpentOn,Double>         timeEntryHoursSumDateMap   = new SoftHashMap<SpentOn,Double>();   // map spent-on date -> hours sum
+  private HashMap<Integer,Integer>             timeEntryIdMap             = new HashMap<Integer,Integer>();      // map id -> index
+  private HashMap<SpentOn,Integer>             timeEntrySpentOnMap        = new HashMap<SpentOn,Integer>();      // map spent-on date -> index
+  private LinkedList<SoftReference<TimeEntry>> timeEntries                = new LinkedList<SoftReference<TimeEntry>>();
+  private long                                 timeEntriesUpdateTimeStamp = 0L;
+  private Date                                 timeEntryStartDate;
+  private SoftHashMap<SpentOn,Double>          timeEntryHoursSumDateMap   = new SoftHashMap<SpentOn,Double>();   // map spent-on date -> hours sum
 
   // ------------------------ native functions ----------------------------
 
@@ -1113,7 +1115,7 @@ public class Redmine
   /** get Redmine users
    * @return user hash map <id,user>
    */
-  public synchronized SoftHashMap<Integer,User> getUsers()
+  public SoftHashMap<Integer,User> getUsers()
     throws RedmineException
   {
     if (userMap.size() <= 0)
@@ -1165,8 +1167,40 @@ public class Redmine
     User user = userMap.get(userId);
     if (user == null)
     {
-      getUsers();
-      user = userMap.get(userId);
+      /* Note: Redmine REST API bug (#7773): only administrator can get full user list.
+               Thus get single user entries only and store into map.
+      */
+      final User[] result = new User[1];
+      getData("/users/"+userId,"user",new ParseElementHandler<User>()
+      {
+        public void data(Element element)
+        {
+          User user = new User(getIntValue(element,"id"),
+                               getValue(element,"firstname"),
+                               getValue(element,"lastname"),
+                               getValue(element,"login"),
+                               getValue(element,"mail"),
+                               getDateValue(element,"created_on"),
+                               getDateValue(element,"last_login_in")
+                              );
+
+          store(user);
+        }
+        public void store(User user)
+        {
+          result[0] = user;
+        }
+      });
+      user = result[0];
+
+      if (user != null)
+      {
+        // store into map
+        synchronized(userMap)
+        {
+          userMap.put(user.id,user);
+        }
+      }
     }
 
     return user;
@@ -1176,7 +1210,7 @@ public class Redmine
    * @param forceRefresh true to force refresh of data
    * @return tracker hash map <id,tracker>
    */
-  public synchronized SoftHashMap<Integer,Tracker> getTrackers(boolean forceRefresh)
+  public SoftHashMap<Integer,Tracker> getTrackers(boolean forceRefresh)
     throws RedmineException
   {
     if ((trackerMap.size() <= 0) || forceRefresh)
@@ -1435,7 +1469,7 @@ public class Redmine
    * @param forceRefresh true to force refresh of data
    * @return activity hash map <id,activity>
    */
-  public synchronized SoftHashMap<Integer,Activity> getActivities(boolean forceRefresh)
+  public SoftHashMap<Integer,Activity> getActivities(boolean forceRefresh)
     throws RedmineException
   {
     if ((activityMap.size() <= 0) || forceRefresh)
@@ -1528,7 +1562,7 @@ public class Redmine
    * @param forceRefresh true to force refresh of data
    * @return project hash map <id,project>
    */
-  public synchronized SoftHashMap<Integer,Project> getProjects(boolean forceRefresh)
+  public SoftHashMap<Integer,Project> getProjects(boolean forceRefresh)
     throws RedmineException
   {
     if ((projectMap.size() <= 0) || forceRefresh)
@@ -1609,13 +1643,13 @@ public class Redmine
   /** get Redmine issues
    * @return issue hash map <id,issue>
    */
-  public synchronized SoftHashMap<Integer,Issue> getIssues(boolean forceRefresh)
+  public SoftHashMap<Integer,Issue> getIssues(boolean forceRefresh)
     throws RedmineException
   {
     if ((issueMap.size() <= 0) || forceRefresh)
     {
 //new Throwable().printStackTrace();
-    // get issues
+      // get issues
       final ArrayList<Issue> issueList = new ArrayList<Issue>();
       getData("/issues","issue",new ParseElementHandler<Issue>()
       {
@@ -1635,8 +1669,8 @@ public class Redmine
                                   getValue(element,"description"),
                                   getDateValue(element,"start_date"),
                                   getDateValue(element,"due_date"),
+                                  getIntAttribute(element,"assigned_to","id"),
                                   getIntValue(element,"done_ratio"),
-                                  getIntValue(element,"assigned_to_id"),
                                   getDoubleValue(element,"estimated_hours" ),
                                   getDateValue(element,"created_on"),
                                   getDateValue(element,"updated_on"),
@@ -1713,14 +1747,35 @@ public class Redmine
     }
   }
 
-  /** get Redmine time entires
+  /** get status name of issue
+   * @param issueId issue id
+   * @param defaultName default status name
+   * @return status name
+   */
+  public String getIssueStatusName(int issueId, String defaultName)
+  {
+    Issue issue = getIssue(issueId);
+
+    return (issue != null) ? getStatusName(issue.statusId) : defaultName;
+  }
+
+  /** get status name of issue
+   * @param issueId issue id
+   * @return status name
+   */
+  public String getIssueStatusName(int issueId)
+  {
+    return getIssueStatusName(issueId,"");
+  }
+
+  /** get Redmine time entries
    * @param projectId project id or ID_ANY
    * @param issueId issue id or ID_ANY
    * @param userId user id or ID_ANY
    * @param spentOn spent-on date or null
    * @return time entry hash map <id,time entry>
    */
-  public synchronized SoftHashMap<Integer,TimeEntry> getTimeEntries(final int projectId, final int issueId, final int userId, final SpentOn spentOn)
+  public SoftHashMap<Integer,TimeEntry> getTimeEntries(final int projectId, final int issueId, final int userId, final SpentOn spentOn)
     throws RedmineException
   {
     SoftHashMap<Integer,TimeEntry> timeEntryMap = new SoftHashMap<Integer,TimeEntry>();
@@ -1737,7 +1792,6 @@ public class Redmine
         SoftReference<TimeEntry> softReference = timeEntries.get(i);
         if ((softReference == null) || (softReference.get() == null))
         {
-  //Dprintf.dprintf("fill %d length %d",i,ENTRY_LIMIT);
           // fill time entry array (get as much data a possible with single request)
           fillTimeEntry(i,ENTRY_LIMIT);
 
@@ -1752,14 +1806,15 @@ public class Redmine
 
           if (matchTimeEntry(timeEntry,projectId,issueId,userId,spentOn))
           {
-  //Dprintf.dprintf("calendar0=%s calendar1=%s",calendar0,calendar1);
+//Dprintf.dprintf("add timeEntry=%s",timeEntry);
             timeEntryMap.put(timeEntry.id,timeEntry);
           }
+//else { Dprintf.dprintf("reject timeEntry=%s",timeEntry); }
 
           // stop when date is found before given spent date (Note: assume time entries are sorted descended)
           if (timeEntry.spentOn.isBefore(spentOn))
           {
-  //Dprintf.dprintf("stop %s",timeEntry);
+//Dprintf.dprintf("stop %s",timeEntry);
             break;
           }
         }
@@ -1799,7 +1854,7 @@ public class Redmine
    * @param spentOn spent-on date or null
    * @return total number of time entries
    */
-  public synchronized int getTimeEntryCount(int projectId, int issueId, int userId, SpentOn spentOn)
+  public int getTimeEntryCount(int projectId, int issueId, int userId, SpentOn spentOn)
     throws RedmineException
   {
     int n = 0;
@@ -1836,7 +1891,7 @@ public class Redmine
           // stop when date is found before given spent date (Note: assume time entries are sorted descended)
           if (timeEntry.spentOn.isBefore(spentOn))
           {
-  //Dprintf.dprintf("stop %s",timeEntry);
+//Dprintf.dprintf("stop %s",timeEntry);
             break;
           }
         }
@@ -1919,7 +1974,7 @@ public class Redmine
    * @param spentOn spent-on date or null
    * @return hours sum of time entries or UPDATE if data still not available
    */
-  public synchronized double getTimeEntryHoursSum(int projectId, int issueId, int userId, SpentOn spentOn)
+  public double getTimeEntryHoursSum(int projectId, int issueId, int userId, SpentOn spentOn)
     throws RedmineException
   {
     double hoursSum = 0.0;
@@ -2017,6 +2072,15 @@ public class Redmine
 //    return getTimeEntryHoursSum(ID_ANY,ID_ANY,ownUserId,spentOn);
   }
 
+  /** get today hours sum of own time entries
+   * @return hours sum of time entries
+   */
+  public double getTimeEntryTodayHoursSum()
+    throws RedmineException
+  {
+    return getTimeEntryHoursSum(today());
+  }
+
   /** get Redmine time entries as an array
    * @param projectId project id or ID_ANY
    * @param issueId issue id or ID_ANY
@@ -2024,7 +2088,7 @@ public class Redmine
    * @param spentOn spent-on date or null
    * @return time entry array
    */
-  public synchronized TimeEntry[] getTimeEntryArray(int projectId, int issueId, int userId, SpentOn spentOn)
+  public TimeEntry[] getTimeEntryArray(int projectId, int issueId, int userId, SpentOn spentOn)
     throws RedmineException
   {
     // update number of time entries, start date
@@ -2051,11 +2115,11 @@ public class Redmine
         if ((softReference != null) && (softReference.get() != null))
         {
           TimeEntry timeEntry = softReference.get();
-  //Dprintf.dprintf("timeEntry=%s",timeEntry);
+//Dprintf.dprintf("timeEntry=%s",timeEntry);
 
           if (matchTimeEntry(timeEntry,projectId,issueId,userId,spentOn))
           {
-  //Dprintf.dprintf("add timeEntry=%s",timeEntry);
+//Dprintf.dprintf("add timeEntry=%s",timeEntry);
             filteredTimeEntries.add(timeEntry);
           }
 
@@ -2108,7 +2172,7 @@ public class Redmine
    * @param index index of time entry [0..n-1]
    * @return time entry or null
    */
-  public synchronized TimeEntry getTimeEntryAt(int index)
+  public TimeEntry getTimeEntryAt(int index)
     throws RedmineException
   {
     SoftReference<TimeEntry> softReference;
@@ -2117,13 +2181,13 @@ public class Redmine
       softReference = timeEntries.get(index);
       if (softReference == null)
       {
-  Dprintf.dprintf("todo: get at index");
+Dprintf.dprintf("todo: get at index");
         getTimeEntries(ID_ANY,ID_ANY,ID_ANY,null);
 
         softReference = timeEntries.get(index);
         if (softReference == null)
         {
-  Dprintf.dprintf("todo: get at index");
+Dprintf.dprintf("todo: get at index");
           getTimeEntries(ID_ANY,ID_ANY,ID_ANY,null);
 
           softReference = timeEntries.get(index);
@@ -2260,9 +2324,14 @@ Dprintf.dprintf("required?");
     {
       for (int i = 0; i < timeEntries.size(); i++)
       {
-        timeEntries.set(i,TIME_ENTRY_NULL);
+        SoftReference<TimeEntry> softReference = timeEntries.get(i);
+        if ((softReference != null) && (softReference.get() == timeEntry)) timeEntries.set(i,TIME_ENTRY_NULL);
       }
       timeEntriesUpdateTimeStamp = 0L;
+    }
+    synchronized(timeEntryHoursSumDateMap)
+    {
+      timeEntryHoursSumDateMap.put(timeEntry.spentOn,HOURS_UPDATE);
     }
   }
 
@@ -2278,23 +2347,6 @@ Dprintf.dprintf("required?");
       }
       timeEntriesUpdateTimeStamp = 0L;
     }
-  }
-
-  /** clear time entry hours sum cache
-   * @param timeEntry time entry to clear from cache
-   */
-  public void clearTimeEntryHoursSumCache(TimeEntry timeEntry)
-  {
-    synchronized(timeEntryHoursSumDateMap)
-    {
-      timeEntryHoursSumDateMap.put(timeEntry.spentOn,HOURS_UPDATE);
-    }
-  }
-
-  /** clear time entry hours sum cache
-   */
-  public void clearTimeEntryHoursSumCache()
-  {
     synchronized(timeEntryHoursSumDateMap)
     {
       timeEntryHoursSumDateMap.clear();
@@ -2336,15 +2388,17 @@ Dprintf.dprintf("required?");
       }
     });
 
-    // clear caches
-    clearTimeEntryCache(timeEntry);
-    clearTimeEntryHoursSumCache(timeEntry);
+    // add to caches
+    addTimeEntryCache(timeEntry);
+    updateTimeEntryHoursSumCache(timeEntry.spentOn,+timeEntry.hours);
   }
 
   /** update time entry
    * @param timeEntry time entry to update
+   * @param prevSpentOn previous spent-on date
+   * @param prevHours previous spent hours
    */
-  public void update(final TimeEntry timeEntry)
+  public void update(final TimeEntry timeEntry, SpentOn prevSpentOn, double prevHours)
     throws RedmineException
   {
     // update time entry on Redmine server
@@ -2376,9 +2430,9 @@ Dprintf.dprintf("required?");
       }
     });
 
-    // clear caches
-    clearTimeEntryCache(timeEntry);
-    clearTimeEntryHoursSumCache(timeEntry);
+    // update cache
+    updateTimeEntryHoursSumCache(prevSpentOn,-prevHours);
+    updateTimeEntryHoursSumCache(timeEntry.spentOn,+timeEntry.hours);
   }
 
   /** delete time entry
@@ -2390,9 +2444,9 @@ Dprintf.dprintf("required?");
     // delete time entry from Redmine server
     deleteData("/time_entries/"+timeEntry.id);
 
-    // clear caches
-    clearTimeEntryCache(timeEntry);
-    clearTimeEntryHoursSumCache(timeEntry);
+    // remove from caches
+    removeTimeEntryCache(timeEntry);
+    updateTimeEntryHoursSumCache(timeEntry.spentOn,-timeEntry.hours);
   }
 
   /** convert house/minutes fraction into duration
@@ -2443,14 +2497,14 @@ Dprintf.dprintf("required?");
     {
       if (serverUseSSL)
       {
-        URL url = new URL("https://"+serverName+":"+serverPort+urlString+".xml"+((arguments != null) ? "?"+StringUtils.join(arguments,'&') : ""));
+        URL url = new URL("https://"+serverName+":"+serverPort+urlString+".xml"+(((arguments != null) && (arguments.length > 0)) ? "?"+StringUtils.join(arguments,'&') : ""));
         HttpsURLConnection httpsConnection = (HttpsURLConnection)url.openConnection();
         httpsConnection.setHostnameVerifier(anyHostnameVerifier);
         connection = httpsConnection;
       }
       else
       {
-        URL url = new URL("http://"+serverName+":"+serverPort+urlString+".xml"+((arguments != null) ? "?"+StringUtils.join(arguments,'&') : ""));
+        URL url = new URL("http://"+serverName+":"+serverPort+urlString+".xml"+(((arguments != null) && (arguments.length > 0)) ? "?"+StringUtils.join(arguments,'&') : ""));
         HttpURLConnection httpConnection = (HttpURLConnection)url.openConnection();
         connection = httpConnection;
       }
@@ -3270,13 +3324,12 @@ Dprintf.dprintf("required?");
       {
         // get total number of time entries
         int timeEntryCount = getDataLength("/time_entries","time_entry");
-        timeEntries.ensureCapacity(timeEntryCount);
         for (int i = timeEntries.size(); i < timeEntryCount; i++)
         {
           timeEntries.add(TIME_ENTRY_NULL);
         }
 
-        // get date of first time entry
+        // get date of first time entry (Note: always sorted descending and cannot be changed)
         timeEntryStartDate = new Date();
         getData("/time_entries","time_entry",timeEntryCount-1,1,new ParseElementHandler<TimeEntry>()
         {
@@ -3324,7 +3377,8 @@ Dprintf.dprintf("required?");
         if (!timeEntrySpentOnMap.containsKey(timeEntry.spentOn)) timeEntrySpentOnMap.put(timeEntry.spentOn,index);
         timeEntries.set(index,new SoftReference<TimeEntry>(timeEntry));
       }
-    });
+    },
+    "sort:desc=spent_on");
   }
 
   /** match time entry
@@ -3349,6 +3403,73 @@ Dprintf.dprintf("required?");
            && (   (spentOn == null)
                || spentOn.equals(timeEntry.spentOn)
               );
+  }
+
+  /** add time entry to cache
+   * @param timeEntry time entry to add
+   */
+  private void addTimeEntryCache(TimeEntry timeEntry)
+  {
+    synchronized(timeEntries)
+    {
+      // insert entry into list
+      int index = 0;
+      while (index < timeEntries.size())
+      {
+        SoftReference<TimeEntry> softReference = timeEntries.get(index);
+        if ((softReference != null) && softReference.get().spentOn.isBefore(timeEntry.spentOn))
+        {
+          break;
+        }
+        index++;
+      }
+      timeEntries.add(index,new SoftReference<TimeEntry>(timeEntry));
+    }
+  }
+
+  /** remove time entry to cache
+   * @param timeEntry time entry to remove
+   */
+  private void removeTimeEntryCache(TimeEntry timeEntry)
+  {
+    synchronized(timeEntries)
+    {
+      SoftReference<TimeEntry> timeEntrySoftReference = null;
+      ListIterator<SoftReference<TimeEntry>> iterator = timeEntries.listIterator();
+      while (iterator.hasNext() && (timeEntrySoftReference == null))
+      {
+        SoftReference<TimeEntry> softReference = iterator.next();
+        if ((softReference != null) && softReference.get() == timeEntry)
+        {
+          timeEntrySoftReference = softReference;
+        }
+      }
+      if (timeEntrySoftReference != null)
+      {
+        timeEntries.remove(timeEntrySoftReference);
+      }
+    }
+  }
+
+  /** add hours to time entry hours sum cache
+   * @param spentOn spent-on date/time
+   * @param deltaHours hours to add/subtract
+   */
+  private void updateTimeEntryHoursSumCache(SpentOn spentOn, double deltaHours)
+  {
+    synchronized(timeEntryHoursSumDateMap)
+    {
+      double hours;
+      if (timeEntryHoursSumDateMap.containsKey(spentOn))
+      {
+        hours = timeEntryHoursSumDateMap.get(spentOn)+deltaHours;
+      }
+      else
+      {
+        hours = deltaHours;
+      }
+      timeEntryHoursSumDateMap.put(spentOn,hours);
+    }
   }
 }
 
