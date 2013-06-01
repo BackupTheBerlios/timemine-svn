@@ -42,6 +42,8 @@ import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.MouseListener;
+import org.eclipse.swt.events.PaintEvent;
+import org.eclipse.swt.events.PaintListener;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.events.ShellAdapter;
@@ -349,7 +351,7 @@ public class Timemine
     new Option("--debug",                      null,Options.Types.BOOLEAN,"debugFlag"    ),
 
     // ignored
-    new Option("--swing",                      null, Options.Types.BOOLEAN,null),
+    new Option("--swing",                      null,Options.Types.BOOLEAN,null),
   };
 
   // --------------------------- variables --------------------------------
@@ -369,7 +371,7 @@ public class Timemine
   private Combo                                  widgetProjects;
   private Composite                              widgetStatusComposite;
   private Combo                                  widgetIssueIds;
-  private Combo                                  widgetIssues;
+  private Combo                                  widgetIssueSubjects;
   private Label                                  widgetIssueStatus;
   private Button                                 widgetIssueStatusFilterButton;
   private Menu                                   widgetIssueStatusFilterMenu;
@@ -478,15 +480,15 @@ public class Timemine
   /** main
    * @param args command line arguments
    */
-  public static void main(String[] args)
+  public static void main(String[] arguments)
   {
-    new Timemine(args);
+    new Timemine(arguments);
   }
 
   /** timemine main
-   * @param args command line arguments
+   * @param arguments command line arguments
    */
-  Timemine(String[] args)
+  Timemine(String[] arguments)
   {
     final char MAIL_AT = '@';
 
@@ -497,7 +499,7 @@ public class Timemine
       Settings.load();
 
       // parse arguments
-      parseArguments(args);
+      parseArguments(arguments);
 
       // init
       initAll();
@@ -566,31 +568,33 @@ exception.printStackTrace();
     System.out.println("");
     System.out.println("Options: ");
     System.out.println("");
-    System.out.println("  -h|--help  - print this help");
-    System.out.println("  --debug    - enable debug mode");
+    System.out.println("  -n|--name=<name>       - login name");
+    System.out.println("  --password=<password>  - login password (use with care!)");
+    System.out.println("  -h|--help              - print this help");
+    System.out.println("  --debug                - enable debug mode");
   }
 
   /** parse arguments
-   * @param args arguments
+   * @param arguments arguments
    */
-  private void parseArguments(String[] args)
+  private void parseArguments(String[] arguments)
   {
     // parse arguments
     int z = 0;
     boolean endOfOptions = false;
-    while (z < args.length)
+    while (z < arguments.length)
     {
-      if      (!endOfOptions && args[z].equals("--"))
+      if      (!endOfOptions && arguments[z].equals("--"))
       {
         endOfOptions = true;
         z++;
       }
-      else if (!endOfOptions && (args[z].startsWith("--") || args[z].startsWith("-")))
+      else if (!endOfOptions && (arguments[z].startsWith("--") || arguments[z].startsWith("-")))
       {
-        int i = Options.parse(options,args,z,Settings.class);
+        int i = Options.parse(options,arguments,z,Settings.class);
         if (i < 0)
         {
-          throw new Error("Unknown option '"+args[z]+"'!");
+          throw new Error("Unknown option '"+arguments[z]+"'!");
         }
         z = i;
       }
@@ -786,6 +790,26 @@ exception.printStackTrace();
     // create tabs
     widgetTabFolder = Widgets.newTabFolder(shell);
     Widgets.layout(widgetTabFolder,0,0,TableLayoutData.NSWE);
+    widgetTabFolder.addPaintListener(new PaintListener()
+    {
+      public void paintControl(PaintEvent paintEvent)
+      {
+        TabFolder widget = (TabFolder)paintEvent.widget;
+        GC        gc     = paintEvent.gc;
+        Rectangle bounds = widget.getBounds();
+        try
+        {
+          double hoursSum = redmine.getTimeEntryTodayHoursSum();
+          String text     = String.format("\u2211: %s",formatHours((hoursSum != Redmine.HOURS_UPDATE) ? hoursSum : 0.0));
+          gc.drawText(text,bounds.width-Widgets.getTextWidth(gc,text)-4,0);
+        }
+        catch (RedmineException exception)
+        {
+          // ignored
+          printStacktrace(exception);
+        }
+      }
+    });
 
     widgetTabToday = Widgets.addTab(widgetTabFolder,"Today ("+Widgets.acceleratorToText(SWT.F5)+")");
     widgetTabToday.setLayout(new TableLayout(new double[]{1.0,0.0,0.0},1.0,2));
@@ -854,7 +878,30 @@ exception.printStackTrace();
           }
           public void widgetSelected(SelectionEvent selectionEvent)
           {
-            Widgets.invoke(widgetDelete);
+            TableItem[] tableItems = widgetTodayTimeEntryTable.getSelection();
+
+            if (tableItems.length > 0)
+            {
+              if (Dialogs.confirm(shell,"Delete "+tableItems.length+" time entries?"))
+              {
+                try
+                {
+                  for (TableItem tableItem : tableItems)
+                  {
+                    Redmine.TimeEntry timeEntry = (Redmine.TimeEntry)tableItem.getData();
+
+                    deleteTimeEntry(timeEntry);
+                    removeTableItem(widgetTodayTimeEntryTable,timeEntry);
+                    removeTreeItem(widgetTimeEntryTree,timeEntry);
+                  }
+                }
+                catch (RedmineException exception)
+                {
+                  Dialogs.error(shell,"Cannot delete time entries (error: "+exception.getMessage()+")");
+                  return;
+                }
+              }
+            }
           }
         });
       }
@@ -871,13 +918,14 @@ exception.printStackTrace();
           {
             Redmine.TimeEntry timeEntry = (Redmine.TimeEntry)tableItems[0].getData();
 
-            Redmine.SpentOn prevSpentOn = timeEntry.spentOn;
+            Redmine.SpentOn prevSpentOn = timeEntry.spentOn.clone();
+            double          prevHours   = timeEntry.hours;
             if (editTimeEntry(timeEntry,"Edit time entry","Save"))
             {
               try
               {
                 // update time entry
-                redmine.update(timeEntry);
+                redmine.update(timeEntry,prevSpentOn,prevHours);
 
                 // refresh/remove today time entry table entry
                 if (timeEntry.spentOn.isToday())
@@ -976,16 +1024,16 @@ exception.printStackTrace();
               // select project
               widgetProjects.select(index);
 
-              // get update issues
-              updateIssues(widgetIssueIds,widgetIssues,projectIds.get(index));
+              // update issues
+              updateIssues(widgetIssueIds,widgetIssueSubjects,projectIds.get(index));
             }
 
             // select matching issue
             index = issueIds0.indexOf(timeEntry.issueId);
             if (index >= 0) widgetIssueIds.select(index);
             index = issueIds1.indexOf(timeEntry.issueId);
-            if (index >= 0) widgetIssues.select(index);
-            widgetIssueStatus.setText((issue != null) ? redmine.getStatusName(issue.statusId,"") : "");
+            if (index >= 0) widgetIssueSubjects.select(index);
+            widgetIssueStatus.setText((issue != null) ? redmine.getStatusName(issue.statusId) : "");
 
             // select matching activity
             index = activityIds.indexOf(timeEntry.activityId);
@@ -1014,7 +1062,7 @@ exception.printStackTrace();
         Widgets.layout(widgetProjects,0,1,TableLayoutData.WE,0,2);
 
         label = Widgets.newLabel(group,"Issue:",SWT.NONE,ACCELERATOR_ISSUE);
-        Widgets.layout(label,1,0,TableLayoutData.NW);
+        Widgets.layout(label,1,0,TableLayoutData.W);
 
         composite = Widgets.newComposite(group);
         composite.setLayout(new TableLayout(0.0,new double[]{0.0,1.0,0.0,0.0}));
@@ -1023,8 +1071,8 @@ exception.printStackTrace();
           widgetIssueIds = Widgets.newSelect(composite,SWT.RIGHT);
           Widgets.layout(widgetIssueIds,0,0,TableLayoutData.W,0,0,0,0,60,SWT.DEFAULT);
 
-          widgetIssues = Widgets.newSelect(composite);
-          Widgets.layout(widgetIssues,0,1,TableLayoutData.WE);
+          widgetIssueSubjects = Widgets.newSelect(composite);
+          Widgets.layout(widgetIssueSubjects,0,1,TableLayoutData.WE);
 
           widgetIssueStatus = Widgets.newLabel(composite);
           Widgets.layout(widgetIssueStatus,0,2,TableLayoutData.E,0,0,0,0,60,SWT.DEFAULT);
@@ -1035,7 +1083,6 @@ exception.printStackTrace();
           widgetIssueStatusFilterMenu = Widgets.newPopupMenu(shell);
           {
             menuItem = Widgets.addMenuRadio(widgetIssueStatusFilterMenu,"All",!Settings.issueOwnFilter);
-            menuItem.setSelection(true);
             menuItem.addSelectionListener(new SelectionListener()
             {
               public void widgetDefaultSelected(SelectionEvent selectionEvent)
@@ -1046,11 +1093,10 @@ exception.printStackTrace();
                 Settings.issueOwnFilter = false;
 
                 // get and update issues for current selected project
-                updateIssues(widgetProjects,widgetIssueIds,widgetIssues);
+                updateIssues(widgetProjects,widgetIssueIds,widgetIssueSubjects);
               }
             });
             menuItem = Widgets.addMenuRadio(widgetIssueStatusFilterMenu,"Own",Settings.issueOwnFilter);
-            menuItem.setSelection(true);
             menuItem.addSelectionListener(new SelectionListener()
             {
               public void widgetDefaultSelected(SelectionEvent selectionEvent)
@@ -1061,14 +1107,13 @@ exception.printStackTrace();
                 Settings.issueOwnFilter = true;
 
                 // get and update issues for current selected project
-                updateIssues(widgetProjects,widgetIssueIds,widgetIssues);
+                updateIssues(widgetProjects,widgetIssueIds,widgetIssueSubjects);
               }
             });
 
             Widgets.addMenuSeparator(widgetIssueStatusFilterMenu);
 
-            menuItem = Widgets.addMenuCheckbox(widgetIssueStatusFilterMenu,"Any");
-            menuItem.setSelection(true);
+            menuItem = Widgets.addMenuCheckbox(widgetIssueStatusFilterMenu,"Any",true);
             menuItem.addSelectionListener(new SelectionListener()
             {
               public void widgetDefaultSelected(SelectionEvent selectionEvent)
@@ -1088,7 +1133,7 @@ exception.printStackTrace();
                 }
 
                 // get and update issues for current selected project
-                updateIssues(widgetProjects,widgetIssueIds,widgetIssues);
+                updateIssues(widgetProjects,widgetIssueIds,widgetIssueSubjects);
               }
             });
           }
@@ -1181,7 +1226,7 @@ exception.printStackTrace();
           Combo widget = (Combo)selectionEvent.widget;
 
           // update issues
-          updateIssues(widget,widgetIssueIds,widgetIssues);
+          updateIssues(widget,widgetIssueIds,widgetIssueSubjects);
         }
       });
       widgetIssueIds.addSelectionListener(new SelectionListener()
@@ -1196,12 +1241,19 @@ exception.printStackTrace();
           int index = widget.getSelectionIndex();
           if ((index >= 0) && (index < issueIds0.size()))
           {
-            index = issueIds1.indexOf(issueIds0.get(index));
-            if (index >= 0) widgetIssues.select(index);
+            int issueId = issueIds0.get(index);
+
+            index = issueIds1.indexOf(issueId);
+            if (index >= 0)
+            {
+              widgetIssueSubjects.select(index);
+            }
+
+            widgetIssueStatus.setText(redmine.getIssueStatusName(issueId));
           }
         }
       });
-      widgetIssues.addSelectionListener(new SelectionListener()
+      widgetIssueSubjects.addSelectionListener(new SelectionListener()
       {
         public void widgetDefaultSelected(SelectionEvent selectionEvent)
         {
@@ -1213,8 +1265,15 @@ exception.printStackTrace();
           int index = widget.getSelectionIndex();
           if ((index >= 0) && (index < issueIds1.size()))
           {
-            index = issueIds0.indexOf(issueIds1.get(index));
-            if (index >= 0) widgetIssueIds.select(index);
+            int issueId = issueIds1.get(index);
+
+            index = issueIds0.indexOf(issueId);
+            if (index >= 0)
+            {
+              widgetIssueIds.select(index);
+            }
+
+            widgetIssueStatus.setText(redmine.getIssueStatusName(issueId));
           }
         }
       });
@@ -1282,7 +1341,7 @@ exception.printStackTrace();
         public void widgetSelected(SelectionEvent selectionEvent)
         {
           int    projectIndex  = widgetProjects.getSelectionIndex();
-          int    issueIndex    = widgetIssues.getSelectionIndex();
+          int    issueIndex    = widgetIssueSubjects.getSelectionIndex();
           int    activityIndex = widgetActivities.getSelectionIndex();
           double hours         = Redmine.toHours(widgetSpentHourFraction.getSelection(),widgetSpentMinuteFraction.getSelection());
           String comments      = widgetComments.getText().trim();
@@ -1296,7 +1355,7 @@ exception.printStackTrace();
           if ((issueIndex < 0) || (issueIndex >= issueIds1.size()))
           {
             Dialogs.error(shell,"Please select an issue for the new time entry.");
-            Widgets.setFocus(widgetIssues);
+            Widgets.setFocus(widgetIssueSubjects);
             return;
           }
           if (hours <= 0)
@@ -1311,12 +1370,6 @@ exception.printStackTrace();
             Widgets.setFocus(widgetActivities);
             return;
           }
-          if (comments.isEmpty())
-          {
-            Dialogs.error(shell,"Please enter a comment for the new time entry.");
-            Widgets.setFocus(widgetComments);
-            return;
-          }
 
           Redmine.TimeEntry timeEntry = redmine.new TimeEntry(projectIds.get(projectIndex),
                                                               issueIds1.get(issueIndex),
@@ -1326,6 +1379,7 @@ exception.printStackTrace();
                                                              );
           try
           {
+            // add time entry
             redmine.add(timeEntry);
 
             // add today time entry table entry
@@ -1356,7 +1410,7 @@ exception.printStackTrace();
             }
             else if (Widgets.isAccelerator(event,ACCELERATOR_ISSUE))
             {
-              Widgets.setFocus(widgetIssues);
+              Widgets.setFocus(widgetIssueSubjects);
               event.doit = false;
             }
             else if (Widgets.isAccelerator(event,ACCELERATOR_SPENT))
@@ -1385,7 +1439,7 @@ exception.printStackTrace();
       display.addFilter(SWT.KeyDown,keyListener);
 
       // set next focus
-      Widgets.setNextFocus(widgetProjects,widgetIssueIds,widgetIssues,widgetSpentHourFraction,widgetSpentMinuteFraction,widgetActivities,widgetComments,widgetAdd);
+      Widgets.setNextFocus(widgetProjects,widgetIssueIds,widgetIssueSubjects,widgetSpentHourFraction,widgetSpentMinuteFraction,widgetActivities,widgetComments,widgetAdd);
     }
     widgetTabToday.addListener(SWT.Show,new Listener()
     {
@@ -1517,6 +1571,7 @@ exception.printStackTrace();
           catch (RedmineException exception)
           {
             // ignored
+            printStacktrace(exception);
             return;
           }
         }
@@ -1581,6 +1636,7 @@ exception.printStackTrace();
           catch (RedmineException exception)
           {
             // ignored
+            printStacktrace(exception);
             return;
           }
         }
@@ -1619,13 +1675,14 @@ exception.printStackTrace();
             {
               Redmine.TimeEntry timeEntry = (Redmine.TimeEntry)treeItem.getData();
 
-              Redmine.SpentOn prevSpentOn = timeEntry.spentOn;
+              Redmine.SpentOn prevSpentOn = timeEntry.spentOn.clone();
+              double          prevHours   = timeEntry.hours;
               if (editTimeEntry(timeEntry,"Edit time entry","Save"))
               {
                 try
                 {
                   // update time entry
-                  redmine.update(timeEntry);
+                  redmine.update(timeEntry,prevSpentOn,prevHours);
 
                   // refresh tree items
                   refreshTreeItem(widget,prevSpentOn);
@@ -1702,12 +1759,14 @@ exception.printStackTrace();
               {
                 Redmine.TimeEntry timeEntry = (Redmine.TimeEntry)treeItems[0].getData();
 
+                Redmine.SpentOn prevSpentOn = timeEntry.spentOn.clone();
+                double          prevHours   = timeEntry.hours;
                 if (editTimeEntry(timeEntry,"Edit time entry","Save"))
                 {
                   try
                   {
                     // update time entry
-                    redmine.update(timeEntry);
+                    redmine.update(timeEntry,prevSpentOn,prevHours);
 
                     Redmine.Activity activity = redmine.getActivity(timeEntry.activityId);
                     Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
@@ -2129,7 +2188,14 @@ Dprintf.dprintf("");
     initDisplay();
 
     // connect to Redmine server
-    LoginData loginData = new LoginData(Settings.serverName,Settings.serverPort,Settings.serverUseSSL,Settings.loginName,Settings.loginPassword);
+    String loginName     = System.getenv("TIMEMINE_NAME");
+    String loginPassword = System.getenv("TIMEMINE_PASSWORD");
+    LoginData loginData = new LoginData(Settings.serverName,
+                                        Settings.serverPort,
+                                        Settings.serverUseSSL,
+                                        ((loginName     != null) && !loginName.isEmpty()    ) ? loginName     : Settings.loginName,
+                                        ((loginPassword != null) && !loginPassword.isEmpty()) ? loginPassword : Settings.loginPassword
+                                       );
     boolean connectOkFlag = false;
     if (!Settings.showLoginFlag && !connectOkFlag)
     {
@@ -2144,6 +2210,7 @@ Dprintf.dprintf("");
       catch (RedmineException exception)
       {
         // ignored
+        printStacktrace(exception);
       }
     }
     while (!connectOkFlag)
@@ -2222,19 +2289,20 @@ Dprintf.dprintf("");
           {
             public void run()
             {
-              // update projects, issues, activities
+              // update projects, status filter, activities
               updateProjects(projects,widgetProjects,projectIds);
               updateIssueStatusFilterMenu(status,widgetIssueStatusFilterMenu);
-              updateActivities(activities,widgetActivities);
+              updateActivities(activities,widgetActivities,activityIds);
 
-              // get and update issues for current selected project
-              updateIssues(widgetProjects,widgetIssueIds,widgetIssues);
+              // update issues for current selected project
+              updateIssues(widgetProjects,widgetIssueIds,widgetIssueSubjects);
             }
           });
         }
         catch (RedmineException exception)
         {
           // ignored
+          printStacktrace(exception);
         }
       }
     };
@@ -2276,8 +2344,6 @@ Dprintf.dprintf("");
                 }
               }
 
-              // update existing entries
-
               // add new entries
               for (Redmine.TimeEntry timeEntry : timeEntryMap.values())
               {
@@ -2289,6 +2355,7 @@ Dprintf.dprintf("");
         catch (RedmineException exception)
         {
           // ignored
+          printStacktrace(exception);
         }
 
         if (Settings.debugFlag)
@@ -2335,6 +2402,7 @@ Dprintf.dprintf("");
         catch (RedmineException exception)
         {
           // ignored
+          printStacktrace(exception);
         }
 
         if (Settings.debugFlag)
@@ -2630,15 +2698,12 @@ Dprintf.dprintf("");
 
   /** update projects combo box
    * @param projects new project data array
+   * @param projectId project id or ID_NONE
    * @param widget widget
    * @param projectIds ids array
    */
-  private void updateProjects(Redmine.Project[] projects, Combo widgetProjects, ArrayList<Integer> projectIds)
+  private void updateProjects(Redmine.Project[] projects, int projectId, Combo widgetProjects, ArrayList<Integer> projectIds)
   {
-    // get selected project
-    int index = widgetProjects.getSelectionIndex();
-    int selectedProjectId = ((index >= 0) && (index < projectIds.size())) ? projectIds.get(index) : -1;
-
     // sort projects
     Arrays.sort(projects,new Comparator<Redmine.Project>()
     {
@@ -2661,20 +2726,35 @@ Dprintf.dprintf("");
     }
 
     // select previous selected project
-    if (selectedProjectId >= 0) widgetProjects.select(projectIds.indexOf(selectedProjectId));
+    if (projectId != Redmine.ID_NONE)
+    {
+      widgetProjects.select(projectIds.indexOf(projectId));
+    }
+  }
+
+  /** update projects combo box
+   * @param projects new project data array
+   * @param widget widget
+   * @param projectIds ids array
+   */
+  private void updateProjects(Redmine.Project[] projects, Combo widgetProjects, ArrayList<Integer> projectIds)
+  {
+    // get selected project
+    int index     = widgetProjects.getSelectionIndex();
+    int projectId = ((index >= 0) && (index < projectIds.size())) ? projectIds.get(index) : Redmine.ID_NONE;
+
+    // update projects
+    updateProjects(projects,projectId,widgetProjects,projectIds);
   }
 
   /** update issues combo box
    * @param issues new issue data array
-   * @param widgetIssueIds id combo widget
+   * @param selectedIssueId selected issue id or ID_NONE
+   * @param widget combo box widget
    * @param issueIds issue ids array
    */
-  private void updateIssueIds(Redmine.Issue[] issues, Combo widgetIssueIds, ArrayList<Integer> issueIds)
+  private void updateIssueIds(Redmine.Issue[] issues, int selectedIssueId, Combo widget, ArrayList<Integer> issueIds)
   {
-    // get selected issue
-    int index = widgetIssueIds.getSelectionIndex();
-    int selectedIssueId = ((index >= 0) && (index < issueIds1.size())) ? issueIds1.get(index) : -1;
-
     // get filtered issues
     ArrayList<Redmine.Issue> filteredIssueList = new ArrayList<Redmine.Issue>();
     for (Redmine.Issue issue : issues)
@@ -2692,7 +2772,7 @@ Dprintf.dprintf("");
     }
     Redmine.Issue[] filteredIssues = filteredIssueList.toArray(new Redmine.Issue[filteredIssueList.size()]);
 
-    // update id combo box
+    // sort filtered issues
     Arrays.sort(filteredIssues,new Comparator<Redmine.Issue>()
     {
       public int compare(Redmine.Issue issue0, Redmine.Issue issue1)
@@ -2705,45 +2785,60 @@ Dprintf.dprintf("");
         else                            return  0;
       }
     });
-    widgetIssueIds.removeAll();
+
+    // update id combo box
+    widget.removeAll();
     issueIds.clear();
     for (int i = 0; i < filteredIssues.length; i++)
     {
-      widgetIssueIds.add(Integer.toString(filteredIssues[i].id));
+      widget.add(Integer.toString(filteredIssues[i].id));
       issueIds.add(filteredIssues[i].id);
     }
 
-    if (selectedIssueId >= 0)
+    // select issue
+    int index = issueIds.indexOf(selectedIssueId);
+    if      (index >= 0)
     {
-      // select previous selected issue
-      widgetIssueIds.select(issueIds.indexOf(selectedIssueId));
+      // select issue
+      widget.select(index);
+      widgetIssueStatus.setText(redmine.getStatusName(filteredIssues[index].statusId));
     }
-    else
+    else if (filteredIssues.length > 0)
     {
       // select first issue
-      if (issueIds.size() > 0)
-      {
-        widgetIssueIds.select(0);
-        widgetIssueStatus.setText(redmine.getStatusName(filteredIssues[0].statusId,""));
-      }
+      widget.select(0);
+      widgetIssueStatus.setText(redmine.getStatusName(filteredIssues[0].statusId));
     }
   }
 
   /** update issues combo box
    * @param issues new issue data array
-   * @param widgetIssues subject combo widget
+   * @param widgetIssueIds id combo widget
    * @param issueIds issue ids array
    */
-  private void updateIssues(Redmine.Issue[] issues, Combo widgetIssues, ArrayList<Integer> issueIds)
+  private void updateIssueIds(Redmine.Issue[] issues, Combo widgetIssueIds, ArrayList<Integer> issueIds)
   {
     // get selected issue
-    int index = widgetIssues.getSelectionIndex();
-    int selectedIssueId = ((index >= 0) && (index < issueIds1.size())) ? issueIds1.get(index) : -1;
+    int selectedIndex   = widgetIssueIds.getSelectionIndex();
+    int selectedIssueId = ((selectedIndex >= 0) && (selectedIndex < issueIds1.size())) ? issueIds1.get(selectedIndex) : Redmine.ID_NONE;
 
+    // update issue ids
+    updateIssueIds(issues,selectedIssueId,widgetIssueIds,issueIds);
+  }
+
+  /** update issue subject combo box
+   * @param issues new issue data array
+   * @param selectedIssueId selected issue id or ID_NONE
+   * @param widget combo box widget
+   * @param issueIds issue ids array
+   */
+  private void updateIssueSubjects(Redmine.Issue[] issues, int selectedIssueId, Combo widget, ArrayList<Integer> issueIds)
+  {
     // get filtered issues
     ArrayList<Redmine.Issue> filteredIssueList = new ArrayList<Redmine.Issue>();
     for (Redmine.Issue issue : issues)
     {
+//try { Dprintf.dprintf("issue=%d %d id=%d %s",issue.id,issue.assignedToId,redmine.getOwnUserId(),redmine.getUser(redmine.getOwnUserId())); } catch (Exception e ) { e.printStackTrace(); System.exit(1);}
       if (   (   !Settings.issueOwnFilter
               || (issue.assignedToId == redmine.getOwnUserId())
              )
@@ -2757,7 +2852,7 @@ Dprintf.dprintf("");
     }
     Redmine.Issue[] filteredIssues = filteredIssueList.toArray(new Redmine.Issue[filteredIssueList.size()]);
 
-    // update id combo box
+    // sort filtered issues
     Arrays.sort(filteredIssues,new Comparator<Redmine.Issue>()
     {
       public int compare(Redmine.Issue issue0, Redmine.Issue issue1)
@@ -2768,36 +2863,53 @@ Dprintf.dprintf("");
         return issue0.subject.compareTo(issue1.subject);
       }
     });
-    widgetIssues.removeAll();
+
+    // update combo box, id array
+    widget.removeAll();
     issueIds.clear();
     for (int i = 0; i < filteredIssues.length; i++)
     {
-      widgetIssues.add(filteredIssues[i].subject);
+      widget.add(filteredIssues[i].subject);
       issueIds.add(filteredIssues[i].id);
     }
 
-    if (selectedIssueId >= 0)
+    // select issue
+    int index = issueIds.indexOf(selectedIssueId);
+    if      (index >= 0)
     {
       // select previous selected issue
-      widgetIssues.select(issueIds1.indexOf(selectedIssueId));
+      widget.select(index);
+      widgetIssueStatus.setText(redmine.getStatusName(filteredIssues[index].statusId));
     }
-    else
+    else if (filteredIssues.length > 0)
     {
       // select first issue
-      if (issueIds1.size() > 0)
-      {
-        widgetIssues.select(0);
-        widgetIssueStatus.setText(redmine.getStatusName(filteredIssues[0].statusId,""));
-      }
+      widget.select(0);
+      widgetIssueStatus.setText(redmine.getStatusName(filteredIssues[0].statusId));
     }
   }
 
   /** update issues combo box
+   * @param issues new issue data array
+   * @param widgetIssues combo widget
+   * @param issueIds issue ids array
+   */
+  private void updateIssueSubjects(Redmine.Issue[] issues, Combo widgetIssues, ArrayList<Integer> issueIds)
+  {
+    // get selected issue
+    int selectedIndex   = widgetIssues.getSelectionIndex();
+    int selectedIssueId = ((selectedIndex >= 0) && (selectedIndex < issueIds1.size())) ? issueIds1.get(selectedIndex) : Redmine.ID_NONE;
+
+    // update issues
+    updateIssueSubjects(issues,selectedIssueId,widgetIssues,issueIds);
+  }
+
+  /** update issues combo box
    * @param widgetIssueIds id combo widget
-   * @param widgetIssues subject combo widget
+   * @param widgetIssueSubjects subject combo widget
    * @param projectId selected project id
    */
-  private void updateIssues(Combo widgetIssueIds, Combo widgetIssues, int projectId)
+  private void updateIssues(Combo widgetIssueIds, Combo widgetIssueSubjects, int projectId)
   {
     try
     {
@@ -2806,7 +2918,7 @@ Dprintf.dprintf("");
 
       // update issues
       updateIssueIds(issues,widgetIssueIds,issueIds0);
-      updateIssues(issues,widgetIssues,issueIds1);
+      updateIssueSubjects(issues,widgetIssueSubjects,issueIds1);
     }
     catch (RedmineException exception)
     {
@@ -2818,18 +2930,18 @@ Dprintf.dprintf("");
   /** update issues combo box
    * @param widgetProjects project combo widget
    * @param widgetIssueIds id combo widget
-   * @param widgetIssues subject combo widget
+   * @param widgetIssueSubjects subject combo widget
    */
-  private void updateIssues(Combo widgetProjects, Combo widgetIssueIds, Combo widgetIssues)
+  private void updateIssues(Combo widgetProjects, Combo widgetIssueIds, Combo widgetIssueSubjects)
   {
     // get selected project
-    int index = widgetProjects.getSelectionIndex();
-    int selectedProjectId = ((index >= 0) && (index < projectIds.size())) ? projectIds.get(index) : -1;
+    int selectedIndex     = widgetProjects.getSelectionIndex();
+    int selectedProjectId = ((selectedIndex >= 0) && (selectedIndex < projectIds.size())) ? projectIds.get(selectedIndex) : -1;
 
-    // get and update issues
+    // update issues
     if (selectedProjectId >= 0)
     {
-      updateIssues(widgetIssueIds,widgetIssues,selectedProjectId);
+      updateIssues(widgetIssueIds,widgetIssueSubjects,selectedProjectId);
     }
   }
 
@@ -2839,20 +2951,24 @@ Dprintf.dprintf("");
    */
   private void updateIssueStatusFilterMenu(Redmine.Status[] status, final Menu widgetIssueStatusFilterMenu)
   {
-    // discard menu times
+    // enable "any" status filter, discard other status filters
     MenuItem[] menuItems = widgetIssueStatusFilterMenu.getItems();
+    menuItems[3].setSelection(true);
     for (int i = 4; i < menuItems.length; i++)
     {
       menuItems[i].dispose();
     }
 
-    // add new menu items
+    // add new status filters menu items
     for (int i = 0; i < status.length; i++)
     {
 //Dprintf.dprintf("status=%s %s",status[i],Settings.issueStatusIdFilterSet.contains(status[i].id));
-      MenuItem menuItem = Widgets.addMenuCheckbox(widgetIssueStatusFilterMenu,status[i].name);
+      // check if status is selected
+      boolean selectedFlag = Settings.issueStatusIdFilterSet.contains(status[i].id);
+
+      // add menu item
+      MenuItem menuItem = Widgets.addMenuCheckbox(widgetIssueStatusFilterMenu,status[i].name,selectedFlag);
       menuItem.setData(status[i]);
-      menuItem.setSelection(Settings.issueStatusIdFilterSet.contains(status[i].id));
       menuItem.addSelectionListener(new SelectionListener()
       {
         public void widgetDefaultSelected(SelectionEvent selectionEvent)
@@ -2873,21 +2989,28 @@ Dprintf.dprintf("");
             Settings.issueStatusIdFilterSet.remove(status.id);
           }
 
-          // select/deselect "any" filter
-          widgetIssueStatusFilterMenu.getItem(0).setSelection(Settings.issueStatusIdFilterSet.size() == 0);
+          // get and update issues for current selected project
+          updateIssues(widgetProjects,widgetIssueIds,widgetIssueSubjects);
+
+          // select/deselect "any" status filter
+          widgetIssueStatusFilterMenu.getItem(3).setSelection(Settings.issueStatusIdFilterSet.size() == 0);
         }
       });
+
+      // disable "any" status filter if some other status is selected
+      if (selectedFlag) menuItems[3].setSelection(false);
     }
   }
 
   /** update activities combo box
    * @param activities new activity data array
-   * @param widget widget
+   * @param widget widgetActivities
+   * @param activityIds activity ids array
    */
-  private void updateActivities(Redmine.Activity[] activities, Combo widget)
+  private void updateActivities(Redmine.Activity[] activities, Combo widgetActivities, ArrayList<Integer> activityIds)
   {
     // get selected activity
-    int index = widget.getSelectionIndex();
+    int index = widgetActivities.getSelectionIndex();
     int selectedActivityId = ((index >= 0) && (index < activityIds.size())) ? activityIds.get(index) : -1;
 
     // sort activities by name
@@ -2903,17 +3026,17 @@ Dprintf.dprintf("");
     });
 
     // update activity combo box
-    widget.removeAll();
+    widgetActivities.removeAll();
     activityIds.clear();
     for (int i = 0; i < activities.length; i++)
     {
-      widget.add(activities[i].name);
-      if (activities[i].isDefault) widget.select(i);
+      widgetActivities.add(activities[i].name);
+      if (activities[i].isDefault) widgetActivities.select(i);
       activityIds.add(activities[i].id);
     }
 
     // select previous selected activity
-    if (selectedActivityId >= 0) widget.select(activityIds.indexOf(selectedActivityId));
+    if (selectedActivityId >= 0) widgetActivities.select(activityIds.indexOf(selectedActivityId));
   }
 
   /** add time entry to table
@@ -2926,14 +3049,17 @@ Dprintf.dprintf("");
     Redmine.Project  project  = redmine.getProject(timeEntry.projectId);
     Redmine.Issue    issue    = redmine.getIssue(timeEntry.issueId);
 
-    return Widgets.addTableEntry(widgetTodayTimeEntryTable,
-                                 timeEntry,
-                                 formatHours(timeEntry.hours),
-                                 (activity != null) ? activity.name : "",
-                                 (project != null) ? project.name : "",
-                                 (issue != null) ? issue.subject : "",
-                                 timeEntry.comments
-                                );
+    TableItem tableItem = Widgets.addTableEntry(widgetTodayTimeEntryTable,
+                                                timeEntry,
+                                                formatHours(timeEntry.hours),
+                                                (activity != null) ? activity.name : "",
+                                                (project != null) ? project.name : "",
+                                                (issue != null) ? issue.subject : "",
+                                                timeEntry.comments
+                                               );
+    widgetTabFolder.redraw();
+
+    return tableItem;
   }
 
   /** remove time entry from table
@@ -2943,6 +3069,7 @@ Dprintf.dprintf("");
   private void removeTableItem(Table table, Redmine.TimeEntry timeEntry)
   {
     Widgets.removeTableEntry(widgetTodayTimeEntryTable,timeEntry);
+    widgetTabFolder.redraw();
   }
 
   /** refresh time entry in table
@@ -2963,6 +3090,7 @@ Dprintf.dprintf("");
                              (issue != null) ? issue.subject : "",
                              timeEntry.comments
                             );
+    widgetTabFolder.redraw();
   }
 
   /** set sub-tree time entries
@@ -3079,11 +3207,12 @@ Dprintf.dprintf("");
     MenuItem    menuItem;
 
     // repository edit dialog
-    dialog = Dialogs.openModal(shell,title,new double[]{1.0,0.0},1.0);
+    dialog = Dialogs.openModal(shell,title,700,SWT.DEFAULT,new double[]{1.0,0.0},1.0);
+Dprintf.dprintf("");
 
     final Combo    widgetProjects;
     final Combo    widgetIssueIds;
-    final Combo    widgetIssues;
+    final Combo    widgetIssueSubjects;
     final Label    widgetIssueStatus;
     final Menu     widgetIssueStatusFilterMenu;
     final Button   widgetIssueStatusFilterButton;
@@ -3094,8 +3223,8 @@ Dprintf.dprintf("");
     final Text     widgetComments;
     final Button   widgetSave;
     composite = Widgets.newComposite(dialog);
-    composite.setLayout(new TableLayout(0.0,new double[]{0.0,1.0,0.0},4));
-    Widgets.layout(composite,0,0,TableLayoutData.NSWE,0,0,4);
+    composite.setLayout(new TableLayout(0.0,new double[]{0.0,1.0},4));
+    Widgets.layout(composite,0,0,TableLayoutData.WE,0,0,4);
     {
       label = Widgets.newLabel(composite,"Project:",SWT.NONE,ACCELERATOR_PROJECT);
       Widgets.layout(label,0,0,TableLayoutData.W);
@@ -3107,14 +3236,14 @@ Dprintf.dprintf("");
       Widgets.layout(label,1,0,TableLayoutData.W);
 
       subComposite = Widgets.newComposite(composite);
-      subComposite.setLayout(new TableLayout(0.0,new double[]{0.0,1.0}));
+      subComposite.setLayout(new TableLayout(0.0,new double[]{0.0,1.0,0.0,0.0}));
       Widgets.layout(subComposite,1,1,TableLayoutData.WE);
       {
         widgetIssueIds = Widgets.newSelect(subComposite);
         Widgets.layout(widgetIssueIds,0,0,TableLayoutData.W,0,0,0,0,60,SWT.DEFAULT);
 
-        widgetIssues = Widgets.newSelect(subComposite);
-        Widgets.layout(widgetIssues,0,1,TableLayoutData.WE);
+        widgetIssueSubjects = Widgets.newSelect(subComposite);
+        Widgets.layout(widgetIssueSubjects,0,1,TableLayoutData.WE);
 
         widgetIssueStatus = Widgets.newLabel(subComposite);
         Widgets.layout(widgetIssueStatus,0,2,TableLayoutData.E,0,0,0,0,60,SWT.DEFAULT);
@@ -3125,7 +3254,6 @@ Dprintf.dprintf("");
         widgetIssueStatusFilterMenu = Widgets.newPopupMenu(dialog);
         {
           menuItem = Widgets.addMenuRadio(widgetIssueStatusFilterMenu,"All",!Settings.issueOwnFilter);
-          menuItem.setSelection(true);
           menuItem.addSelectionListener(new SelectionListener()
           {
             public void widgetDefaultSelected(SelectionEvent selectionEvent)
@@ -3136,11 +3264,10 @@ Dprintf.dprintf("");
               Settings.issueOwnFilter = false;
 
               // get and update issues for current selected project
-              updateIssues(widgetProjects,widgetIssueIds,widgetIssues);
+              updateIssues(widgetProjects,widgetIssueIds,widgetIssueSubjects);
             }
           });
           menuItem = Widgets.addMenuRadio(widgetIssueStatusFilterMenu,"Own",Settings.issueOwnFilter);
-          menuItem.setSelection(true);
           menuItem.addSelectionListener(new SelectionListener()
           {
             public void widgetDefaultSelected(SelectionEvent selectionEvent)
@@ -3151,14 +3278,13 @@ Dprintf.dprintf("");
               Settings.issueOwnFilter = true;
 
               // get and update issues for current selected project
-              updateIssues(widgetProjects,widgetIssueIds,widgetIssues);
+              updateIssues(widgetProjects,widgetIssueIds,widgetIssueSubjects);
             }
           });
 
           Widgets.addMenuSeparator(widgetIssueStatusFilterMenu);
 
-          menuItem = Widgets.addMenuCheckbox(widgetIssueStatusFilterMenu,"Any");
-          menuItem.setSelection(true);
+          menuItem = Widgets.addMenuCheckbox(widgetIssueStatusFilterMenu,"Any",true);
           menuItem.addSelectionListener(new SelectionListener()
           {
             public void widgetDefaultSelected(SelectionEvent selectionEvent)
@@ -3178,7 +3304,7 @@ Dprintf.dprintf("");
               }
 
               // get and update issues for current selected project
-              updateIssues(widgetProjects,widgetIssueIds,widgetIssues);
+              updateIssues(widgetProjects,widgetIssueIds,widgetIssueSubjects);
             }
           });
         }
@@ -3288,7 +3414,7 @@ Dprintf.dprintf("");
         public void widgetSelected(SelectionEvent selectionEvent)
         {
           int    projectIndex  = widgetProjects.getSelectionIndex();
-          int    issueIndex    = widgetIssues.getSelectionIndex();
+          int    issueIndex    = widgetIssueSubjects.getSelectionIndex();
           int    activityIndex = widgetActivities.getSelectionIndex();
           double hours         = Redmine.toHours(widgetSpentHourFraction.getSelection(),widgetSpentMinuteFraction.getSelection());
           String comments      = widgetComments.getText().trim();
@@ -3302,7 +3428,7 @@ Dprintf.dprintf("");
           if ((issueIndex < 0) || (issueIndex >= data.issueIds1.size()))
           {
             Dialogs.error(shell,"Please select an issue for the new time entry.");
-            Widgets.setFocus(widgetIssues);
+            Widgets.setFocus(widgetIssueSubjects);
             return;
           }
           if (hours <= 0)
@@ -3317,12 +3443,6 @@ Dprintf.dprintf("");
             Widgets.setFocus(widgetActivities);
             return;
           }
-          if (comments.isEmpty())
-          {
-            Dialogs.error(shell,"Please enter a comment for the new time entry.");
-            Widgets.setFocus(widgetComments);
-            return;
-          }
 
           timeEntry.projectId  = data.projectIds.get(projectIndex);
           timeEntry.issueId    = data.issueIds1.get(issueIndex);
@@ -3330,6 +3450,8 @@ Dprintf.dprintf("");
           timeEntry.hours      = hours;
           timeEntry.activityId = data.activityIds.get(activityIndex);
           timeEntry.comments   = comments;
+
+          Settings.geometryEditTimeEntry = dialog.getSize();
 
           Dialogs.close(dialog,true);
         }
@@ -3351,11 +3473,13 @@ Dprintf.dprintf("");
 
     // get projects, issues, activities
     Redmine.Project[]  projects   = null;
+    Redmine.Status[]   status     = null;
     Redmine.Issue[]    issues     = null;
     Redmine.Activity[] activities = null;
     try
     {
       projects   = redmine.getProjectArray();
+      status     = redmine.getStatusArray();
       issues     = redmine.getIssueArray(timeEntry.projectId);
       activities = redmine.getActivityArray();
     }
@@ -3366,10 +3490,12 @@ Dprintf.dprintf("");
     }
 
     // show sorted projects, issues, activities
-    updateProjects(projects,widgetIssueIds,data.issueIds0);
-    updateIssueIds(issues,widgetIssues,data.issueIds1);
-    updateIssues(issues,widgetProjects,data.projectIds);
-    updateActivities(activities,widgetActivities);
+    updateProjects(projects,timeEntry.projectId,widgetProjects,data.projectIds);
+    updateIssueStatusFilterMenu(status,widgetIssueStatusFilterMenu);
+    updateIssueIds(issues,timeEntry.issueId,widgetIssueIds,data.issueIds0);
+    updateIssueSubjects(issues,timeEntry.issueId,widgetIssueSubjects,data.issueIds1);
+    widgetIssueStatus.setText(redmine.getIssueStatusName(timeEntry.issueId));
+    updateActivities(activities,widgetActivities,data.activityIds);
 
     // add listeners
     widgetProjects.addSelectionListener(new SelectionListener()
@@ -3395,15 +3521,15 @@ Dprintf.dprintf("");
         }
 
         // show sorted issues
-        updateIssueIds(issues,widgetIssues,data.issueIds1);
-        updateIssues(issues,widgetProjects,data.projectIds);
+        updateIssueIds(issues,widgetIssueIds,data.issueIds0);
+        updateIssueSubjects(issues,widgetIssueSubjects,data.issueIds1);
 
         // select first issue
         if (data.issueIds1.size() > 0)
         {
           widgetIssueIds.select(data.issueIds0.indexOf(data.issueIds1.get(0)));
-          widgetIssues.select(0);
-          widgetIssueStatus.setText(redmine.getStatusName(issues[0].statusId,""));
+          widgetIssueSubjects.select(0);
+          widgetIssueStatus.setText(redmine.getStatusName(issues[0].statusId));
         }
       }
     });
@@ -3419,12 +3545,19 @@ Dprintf.dprintf("");
         int index = widget.getSelectionIndex();
         if ((index >= 0) && (index < data.issueIds0.size()))
         {
-          index = data.issueIds1.indexOf(data.issueIds0.get(index));
-          if (index >= 0) widgetIssues.select(index);
+          int issueId = data.issueIds0.get(index);
+
+          index = data.issueIds1.indexOf(issueId);
+          if (index >= 0)
+          {
+            widgetIssueSubjects.select(index);
+          }
+
+          widgetIssueStatus.setText(redmine.getIssueStatusName(issueId));
         }
       }
     });
-    widgetIssues.addSelectionListener(new SelectionListener()
+    widgetIssueSubjects.addSelectionListener(new SelectionListener()
     {
       public void widgetDefaultSelected(SelectionEvent selectionEvent)
       {
@@ -3436,8 +3569,15 @@ Dprintf.dprintf("");
         int index = widget.getSelectionIndex();
         if ((index >= 0) && (index < data.issueIds1.size()))
         {
-          index = data.issueIds0.indexOf(data.issueIds1.get(index));
-          if (index >= 0) widgetIssueIds.select(index);
+          int issueId = data.issueIds1.get(index);
+
+          index = data.issueIds0.indexOf(issueId);
+          if (index >= 0)
+          {
+            widgetIssueIds.select(index);
+          }
+
+          widgetIssueStatus.setText(redmine.getIssueStatusName(issueId));
         }
       }
     });
@@ -3512,7 +3652,7 @@ Dprintf.dprintf("");
           }
           else if (Widgets.isAccelerator(event,ACCELERATOR_ISSUE))
           {
-            Widgets.setFocus(widgetIssues);
+            Widgets.setFocus(widgetIssueSubjects);
             event.doit = false;
           }
           else if (Widgets.isAccelerator(event,ACCELERATOR_SPENT))
@@ -3542,7 +3682,8 @@ Dprintf.dprintf("");
 
     // set next focus
     Widgets.setNextFocus(widgetProjects,
-                         widgetIssues,
+                         widgetIssueIds,
+                         widgetIssueSubjects,
                          widgetSpentOn,
                          widgetSpentHourFraction,
                          widgetSpentMinuteFraction,
@@ -3552,11 +3693,11 @@ Dprintf.dprintf("");
                         );
 
     // show dialog
-    Dialogs.show(dialog);
+    Dialogs.show(dialog,Settings.geometryEditTimeEntry);
 
     // run
     if      (timeEntry.projectId == Redmine.ID_NONE) Widgets.setFocus(widgetProjects);
-    else if (timeEntry.issueId   == Redmine.ID_NONE) Widgets.setFocus(widgetIssues);
+    else if (timeEntry.issueId   == Redmine.ID_NONE) Widgets.setFocus(widgetIssueSubjects);
     else                                             Widgets.setFocus(widgetSpentMinuteFraction);
     boolean result = (Boolean)Dialogs.run(dialog,false);
 
@@ -3583,10 +3724,8 @@ Dprintf.dprintf("");
 
     if (editTimeEntry(timeEntry,"Add time entry","Add"))
     {
+      // add time entry
       redmine.add(timeEntry);
-
-      // refresh tree item
-      refreshTreeItem(widgetTimeEntryTree,timeEntry.spentOn);
 
       // add today time entry table entry
       if (timeEntry.spentOn.isToday())
@@ -3594,6 +3733,9 @@ Dprintf.dprintf("");
         TableItem tableItem = addTableItem(widgetTodayTimeEntryTable,timeEntry);
         widgetTodayTimeEntryTable.setSelection(tableItem);
       }
+
+      // refresh tree item
+      refreshTreeItem(widgetTimeEntryTree,timeEntry.spentOn);
     }
   }
 
@@ -3603,7 +3745,13 @@ Dprintf.dprintf("");
   private void deleteTimeEntry(Redmine.TimeEntry timeEntry)
     throws RedmineException
   {
+    Redmine.SpentOn spentOn = timeEntry.spentOn;
+
+    // delete entry
     redmine.delete(timeEntry);
+
+    // refresh tree item
+    refreshTreeItem(widgetTimeEntryTree,spentOn);
   }
 
   /** add vacation date
