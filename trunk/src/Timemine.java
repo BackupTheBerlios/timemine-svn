@@ -790,6 +790,16 @@ exception.printStackTrace();
     // create tabs
     widgetTabFolder = Widgets.newTabFolder(shell);
     Widgets.layout(widgetTabFolder,0,0,TableLayoutData.NSWE);
+    widgetTabFolder.addListener(SWT.Resize,new Listener()
+    {
+      public void handleEvent(Event event)
+      {
+        TabFolder widget = (TabFolder)event.widget;
+        Rectangle bounds = widget.getBounds();
+
+        widgetTabFolder.redraw(bounds.x,bounds.y,bounds.width,bounds.height,true);
+      }
+    });
     widgetTabFolder.addPaintListener(new PaintListener()
     {
       public void paintControl(PaintEvent paintEvent)
