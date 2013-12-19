@@ -420,19 +420,20 @@ abstract class DialogRunnable
  */
 class BooleanFieldUpdater
 {
-  private Object object;
   private Field  field;
+  private Object object;
 
   /** create boolean field updater
    * @param clazz class with boolean or Boolean field
+   * @param object object instance
    * @param fieldName field name
    */
-  BooleanFieldUpdater(Object object, String fieldName)
+  BooleanFieldUpdater(Class clazz, Object object, String fieldName)
   {
     try
     {
+      this.field  = clazz.getDeclaredField(fieldName);
       this.object = object;
-      this.field  = object.getClass().getDeclaredField(fieldName);
     }
     catch (NoSuchFieldException exception)
     {
@@ -1086,7 +1087,6 @@ class Dialogs
         // run dialog
         while (!dialog.isDisposed())
         {
-//System.err.print(".");
           if (!display.readAndDispatch()) display.sleep();
         }
 
@@ -1130,12 +1130,23 @@ class Dialogs
 
   /** create boolean field updater
    * @param clazz class with boolean or Boolean field
+   * @param object object instance
+   * @param fieldName field name
+   * @return boolean field updater
+   */
+  public static BooleanFieldUpdater booleanFieldUpdater(Class clazz, Object object, String fieldName)
+  {
+    return new BooleanFieldUpdater(clazz,object,fieldName);
+  }
+
+  /** create boolean field updater
+   * @param clazz class with boolean or Boolean field
    * @param fieldName field name
    * @return boolean field updater
    */
   public static BooleanFieldUpdater booleanFieldUpdater(Class clazz, String fieldName)
   {
-    return new BooleanFieldUpdater(clazz,fieldName);
+    return booleanFieldUpdater(clazz,null,fieldName);
   }
 
   /** info dialog
@@ -1339,7 +1350,7 @@ class Dialogs
             widgetShowAgain = new Button(composite,SWT.CHECK);
             widgetShowAgain.setText("show again");
             widgetShowAgain.setSelection(true);
-            widgetShowAgain.setLayoutData(new TableLayoutData(1,1,TableLayoutData.W));
+            widgetShowAgain.setLayoutData(new TableLayoutData(row,1,TableLayoutData.W)); row++;
           }
           else
           {
@@ -1617,8 +1628,6 @@ class Dialogs
     {
       if (!parentShell.isDisposed())
       {
-        final boolean[] result = new boolean[1];
-
         final Shell dialog = openModal(parentShell,title,300,70);
         dialog.setLayout(new TableLayout(new double[]{1.0,0.0},1.0));
 
@@ -1686,6 +1695,7 @@ class Dialogs
         }
 
         return (Boolean)run(dialog,
+                            defaultValue,
                             new DialogRunnable()
                             {
                               public void done(Object result)
@@ -1756,6 +1766,19 @@ class Dialogs
   /** confirmation dialog
    * @param parentShell parent shell
    * @param title title string
+   * @param image image to show
+   * @param message confirmation message
+   * @param yesText yes-text
+   * @return value
+   */
+  public static boolean confirm(Shell parentShell, String title, Image image, String message, String yesText)
+  {
+    return confirm(parentShell,title,null,image,message,yesText,"Cancel");
+  }
+
+  /** confirmation dialog
+   * @param parentShell parent shell
+   * @param title title string
    * @param showAgainFieldFlag show again field updater or null
    * @param message confirmation message
    * @param yesText yes-text
@@ -1809,6 +1832,18 @@ class Dialogs
   public static boolean confirm(Shell parentShell, String title, String message, String yesText, String noText)
   {
     return confirm(parentShell,title,(BooleanFieldUpdater)null,message,yesText,noText);
+  }
+
+  /** confirmation dialog
+   * @param parentShell parent shell
+   * @param title title string
+   * @param message confirmation message
+   * @param yesText yes-text
+   * @return value
+   */
+  public static boolean confirm(Shell parentShell, String title, String message, String yesText)
+  {
+    return confirm(parentShell,title,(BooleanFieldUpdater)null,message,yesText,"Cancel");
   }
 
   /** confirmation dialog
@@ -2805,7 +2840,7 @@ class Dialogs
 
         button = new Button(composite,SWT.CENTER);
         button.setText(cancelText);
-        button.setLayoutData(new TableLayoutData(0,1,TableLayoutData.E,0,0,0,0,SWT.DEFAULT,SWT.DEFAULT,60,SWT.DEFAULT));
+        button.setLayoutData(new TableLayoutData(0,1,TableLayoutData.E));
         button.addSelectionListener(new SelectionListener()
         {
           public void widgetDefaultSelected(SelectionEvent selectionEvent)
@@ -3004,11 +3039,25 @@ class Dialogs
    * @param title title string
    * @param text text before input element
    * @param value value to edit (can be null)
+   * @param okText OK button text
+   * @return string or null on cancel
+   */
+  public static String string(Shell parentShell, String title, String text, String value, String okText)
+  {
+    return string(parentShell,title,text,value,okText,"Cancel");
+  }
+
+
+  /** simple string dialog
+   * @param parentShell parent shell
+   * @param title title string
+   * @param text text before input element
+   * @param value value to edit (can be null)
    * @return string or null on cancel
    */
   public static String string(Shell parentShell, String title, String text, String value)
   {
-    return string(parentShell,title,text,value,"Save","Cancel");
+    return string(parentShell,title,text,value,"Save");
   }
 
   /** simple string dialog
